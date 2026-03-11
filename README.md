@@ -20,7 +20,7 @@ npm install @shayarnett/droplet
 ## Quick Start
 
 ```js
-const Droplet = require("./droplet");
+const Droplet = require("@shayarnett/droplet");
 
 const engine = new Droplet();
 const html = await engine.parseAndRender("Hello {{ name }}!", { name: "World" });
@@ -36,7 +36,7 @@ Swap your import for the compatibility shim and everything keeps working:
 // const { Liquid } = require("liquidjs");
 
 // After (Droplet):
-const { Liquid } = require("./ext/liquid-compat");
+const { Liquid } = require("@shayarnett/droplet/ext/liquid-compat");
 ```
 
 All the APIs you're used to work the same — `parse()`, `render()`, `parseAndRender()`, `renderFile()`, `parseFile()`, `registerFilter()`, `registerTag()`, `plugin()`, `express()`, `setTemplate()`. Sync methods (`parseAndRenderSync`, `renderSync`, etc.) throw with migration hints pointing you to the async equivalent.
@@ -94,8 +94,8 @@ Droplet keeps the core small. Optional extensions add features you opt into.
 Adds `{% include %}` and `{% render %}` support with in-memory templates.
 
 ```js
-const Droplet = require("./droplet");
-const partials = require("./ext/partials");
+const Droplet = require("@shayarnett/droplet");
+const partials = require("@shayarnett/droplet/ext/partials");
 
 const engine = new Droplet();
 const templates = {
@@ -119,7 +119,7 @@ engine._fs["sidebar"] = "<nav>{{ links }}</nav>";
 Renders errors inline instead of throwing, matching Ruby Liquid's `render_errors` mode.
 
 ```js
-const inlineErrors = require("./ext/inline-errors");
+const inlineErrors = require("@shayarnett/droplet/ext/inline-errors");
 inlineErrors(engine);
 ```
 

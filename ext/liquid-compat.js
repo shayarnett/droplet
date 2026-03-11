@@ -1,10 +1,10 @@
 // ext/liquid-compat.js — LiquidJS API compatibility shim for Droplet
-// Usage: const { Liquid } = require("./ext/liquid-compat");
+// Usage: const { Liquid } = require("@shayarnett/droplet/ext/liquid-compat");
 //        const engine = new Liquid({ globals: { site: "My Site" } });
 //        const html = await engine.parseAndRender("{{ site }}", { page: "Home" });
 
-const Droplet = require("../droplet");
-const partials = require("./partials");
+const Droplet = require("@shayarnett/droplet");
+const partials = require("@shayarnett/droplet/ext/partials");
 
 class Liquid {
   constructor(options = {}) {

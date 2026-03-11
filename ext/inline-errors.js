@@ -1,5 +1,5 @@
 // ext/inline-errors.js — render_errors mode: catch errors inline
-// Usage: require("./ext/inline-errors")(engine)
+// Usage: require("@shayarnett/droplet/ext/inline-errors")(engine)
 // After enabling, errors render as "Liquid error (line N): message" instead of throwing
 
 module.exports = function inlineErrors(engine) {

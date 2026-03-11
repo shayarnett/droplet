@@ -12,12 +12,11 @@ src/
   tokenizer.js          # Template parsing (tokenize, isBlockBlank)
   render.js             # Render loop + all tag handlers
   index.js              # Droplet class, CJS export
-droplet.js              # Build output: bun-bundled CJS (~52 KB)
-droplet.min.js          # Minified build (~27 KB)
 ext/
   partials.js           # {% include %} and {% render %} support
   inline-errors.js      # Render errors inline instead of throwing
   liquid-compat.js      # LiquidJS API compatibility shim
+compare.js              # Side-by-side Droplet vs LiquidJS spec comparison
 spec-runner.js          # Runs all liquid-spec suites against Droplet
 test.js                 # Unit tests for core engine
 liquid-spec/            # Git submodule with YAML test specs
@@ -87,8 +86,8 @@ Write a targeted analysis script. Example:
 // analyze-category.js
 const yaml = require("js-yaml");
 const fs = require("fs");
-const Droplet = require("./droplet");
-const partials = require("./ext/partials");
+const Droplet = require("./droplet")  // use local build for development;
+const partials = require("./ext/partials")  // use local build for development;
 
 const engine = new Droplet();
 partials(engine, {});

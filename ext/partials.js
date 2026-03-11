@@ -1,5 +1,5 @@
 // ext/partials.js — {% include %} and {% render %} support for Droplet
-// Usage: require("./ext/partials")(engine, { "snippet": "hello {{ name }}" })
+// Usage: require("@shayarnett/droplet/ext/partials")(engine, { "snippet": "hello {{ name }}" })
 
 module.exports = function partials(engine, filesystem) {
   const { tokenize, render, rout, evalOutput, evalExpr, stringify, evalCondition } = engine.constructor._internals;
