@@ -26,6 +26,18 @@ var BLANK = { __liquid: "blank", toString: () => "" };
 var truthy = (value) => value !== false && value != null && value !== BLANK;
 var isEmpty = (value) => value === "" || isArr(value) && !value.length || value != null && typeof value === "object" && !isArr(value) && !value.__liquid && !Object.keys(value).length;
 var isBlank = (value) => value == null || isEmpty(value) || value === false || typeof value === "string" && !value.trim();
+var arrEq = (a, b) => {
+  if (a.length !== b.length)
+    return false;
+  for (let i = 0;i < a.length; i++) {
+    if (isArr(a[i]) && isArr(b[i])) {
+      if (!arrEq(a[i], b[i]))
+        return false;
+    } else if (a[i] !== b[i] && !(a[i] == null && b[i] == null))
+      return false;
+  }
+  return true;
+};
 var liquidEq = (left, right) => {
   if (right === EMPTY || right?.__liquid === "empty")
     return isEmpty(left);
@@ -37,6 +49,8 @@ var liquidEq = (left, right) => {
     return isBlank(right);
   const lv = left?.__f ? +left : left;
   const rv = right?.__f ? +right : right;
+  if (isArr(lv) && isArr(rv))
+    return arrEq(lv, rv);
   return lv === rv || lv == null && rv == null;
 };
 var rubyVal = (value) => {
@@ -248,7 +262,7 @@ var BUILTIN_FILTERS = {
     const nDivisor = num(divisor);
     const nValue = num(value);
     if (!nDivisor)
-      return Infinity;
+      return nValue / nDivisor;
     if (!hasFloat)
       return M.trunc(nValue / nDivisor);
     const result = nValue / nDivisor;
@@ -344,12 +358,14 @@ var BUILTIN_FILTERS = {
   replace_first: (value, search, replacement) => {
     const s = str(value);
     let r = unescapeReplacement(replacement ?? "");
+    search = search == null ? "" : "" + search;
     const idx = s.indexOf(search);
     return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
   replace_last: (value, search, replacement) => {
     const s = str(value);
     let r = unescapeReplacement(replacement ?? "");
+    search = search == null ? "" : "" + search;
     const idx = s.lastIndexOf(search);
     return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
@@ -460,7 +476,7 @@ var BUILTIN_FILTERS = {
     value = str(value);
     const trimmed = value.replace(/^[ \t\n\r\f\v]+/, "");
     const words = trimmed.split(/[ \t\n\r\f\v]+/);
-    wordCount = wordCount != null ? num(wordCount) : 15;
+    wordCount = wordCount != null ? M.max(1, num(wordCount)) : 15;
     ellipsis = ellipsis ?? "...";
     return words.length <= wordCount ? words.join(" ") : words.slice(0, wordCount).join(" ") + ellipsis;
   },
@@ -501,8 +517,8 @@ var BUILTIN_FILTERS = {
   },
   url_encode: (value) => value == null ? null : encodeURIComponent(str(value)).replace(/%20/g, "+"),
   where: (value, key, ...rest) => {
-    if (!key && key !== 0)
-      return arr(value);
+    if (key == null)
+      return [];
     const hasTarget = rest.length > 0;
     const looseEq = (a, b) => {
       if (typeof a !== "object" && typeof b !== "object")
@@ -924,8 +940,11 @@ var evalCondition = (expr, ctx) => {
             return false;
           if (typeof left === "string")
             return left.includes(str(right));
-          if (isArr(left))
+          if (isArr(left)) {
+            if (isArr(right))
+              return left.some((item) => isArr(item) && item.length === right.length && item.every((v, k) => v === right[k]));
             return left.includes(right);
+          }
           return false;
       }
     }
@@ -1118,6 +1137,10 @@ var handleIf = async (tokens, ctx, i, len, engine) => {
       else if (!commentDepth) {
         if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent))
           depth++;
+        else if (/^case\s/.test(tagContent))
+          depth++;
+        else if (tagContent === "endcase")
+          depth--;
         else if (tagContent === "endif" || tagContent === "endunless") {
           depth--;
           if (!depth) {
@@ -1532,8 +1555,7 @@ var handleLiquid = async (body, ctx, engine) => {
   const wrappedSrc = body.split(`
 `).map((line) => line.trim()).filter(Boolean).map((line) => `{% ${line} %}`).join("");
   const liquidTokens = tokenize(wrappedSrc);
-  const result = await render(liquidTokens, ctx, 0, liquidTokens.length, engine);
-  return rout(result);
+  return await render(liquidTokens, ctx, 0, liquidTokens.length, engine);
 };
 var render = async (tokens, ctx, start, end, engine) => {
   let output = "";
@@ -1709,7 +1731,12 @@ var render = async (tokens, ctx, start, end, engine) => {
         output += stringify(await evalOutput(m[1], ctx, engine));
         i++;
       } else if (m = tag.match(/^liquid\s*([\s\S]*)$/)) {
-        output += await handleLiquid(m[1], ctx, engine);
+        const liquidResult = await handleLiquid(m[1], ctx, engine);
+        if (liquidResult?.__ctrl) {
+          liquidResult.out = output + (liquidResult.out ?? "");
+          return liquidResult;
+        }
+        output += typeof liquidResult === "string" ? liquidResult : rout(liquidResult);
         i++;
       } else if (tag === "ifchanged") {
         let depth = 1, j = i + 1;

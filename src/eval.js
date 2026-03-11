@@ -353,7 +353,10 @@ const evalCondition = (expr, ctx) => {
         case "contains":
           if (right == null) return false;
           if (typeof left === "string") return left.includes(str(right));
-          if (isArr(left)) return left.includes(right);
+          if (isArr(left)) {
+            if (isArr(right)) return left.some(item => isArr(item) && item.length === right.length && item.every((v, k) => v === right[k]));
+            return left.includes(right);
+          }
           return false;
       }
     }

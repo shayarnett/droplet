@@ -173,7 +173,7 @@ const BUILTIN_FILTERS = {
     const hasFloat = value?.__f || divisor?.__f || ("" + value).includes(".") || ("" + divisor).includes(".");
     const nDivisor = num(divisor);
     const nValue = num(value);
-    if (!nDivisor) return Infinity;
+    if (!nDivisor) return nValue / nDivisor; // 0/0→NaN, x/0→±Infinity (preserves sign)
     if (!hasFloat) return M.trunc(nValue / nDivisor);
     const result = nValue / nDivisor;
     return result % 1 === 0 ? result.toFixed(1) : result;
@@ -305,6 +305,7 @@ const BUILTIN_FILTERS = {
   replace_first: (value, search, replacement) => {
     const s = str(value);
     let r = unescapeReplacement(replacement ?? "");
+    search = search == null ? "" : "" + search;
     const idx = s.indexOf(search);
     return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
@@ -312,6 +313,7 @@ const BUILTIN_FILTERS = {
   replace_last: (value, search, replacement) => {
     const s = str(value);
     let r = unescapeReplacement(replacement ?? "");
+    search = search == null ? "" : "" + search;
     const idx = s.lastIndexOf(search);
     return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
@@ -422,7 +424,7 @@ const BUILTIN_FILTERS = {
     value = str(value);
     const trimmed = value.replace(/^[ \t\n\r\f\v]+/, "");
     const words = trimmed.split(/[ \t\n\r\f\v]+/);
-    wordCount = wordCount != null ? num(wordCount) : 15;
+    wordCount = wordCount != null ? M.max(1, num(wordCount)) : 15;
     ellipsis = ellipsis ?? "...";
     return words.length <= wordCount ? words.join(" ") : words.slice(0, wordCount).join(" ") + ellipsis;
   },
@@ -466,7 +468,7 @@ const BUILTIN_FILTERS = {
   url_encode: (value) => value == null ? null : encodeURIComponent(str(value)).replace(/%20/g, "+"),
 
   where: (value, key, ...rest) => {
-    if (!key && key !== 0) return arr(value);
+    if (key == null) return [];
     const hasTarget = rest.length > 0;
     const looseEq = (a, b) => {
       if (typeof a !== "object" && typeof b !== "object") return a == b;

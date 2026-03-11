@@ -47,6 +47,16 @@ const isEmpty = (value) =>
 const isBlank = (value) =>
   value == null || isEmpty(value) || value === false || (typeof value === "string" && !value.trim());
 
+// Deep equality for arrays (Liquid compares arrays by value)
+const arrEq = (a, b) => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (isArr(a[i]) && isArr(b[i])) { if (!arrEq(a[i], b[i])) return false; }
+    else if (a[i] !== b[i] && !(a[i] == null && b[i] == null)) return false;
+  }
+  return true;
+};
+
 // Liquid equality: handles empty/blank sentinels and float-tagged numbers
 const liquidEq = (left, right) => {
   if (right === EMPTY || right?.__liquid === "empty") return isEmpty(left);
@@ -55,6 +65,7 @@ const liquidEq = (left, right) => {
   if (left === BLANK || left?.__liquid === "blank") return isBlank(right);
   const lv = left?.__f ? +left : left;
   const rv = right?.__f ? +right : right;
+  if (isArr(lv) && isArr(rv)) return arrEq(lv, rv);
   return lv === rv || (lv == null && rv == null);
 };
 

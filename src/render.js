@@ -46,6 +46,8 @@ const handleIf = async (tokens, ctx, i, len, engine) => {
       else if (tagContent === "endcomment" || tagContent === "enddoc" || tagContent === "endraw") commentDepth--;
       else if (!commentDepth) {
         if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent)) depth++;
+        else if (/^case\s/.test(tagContent)) depth++;
+        else if (tagContent === "endcase") depth--;
         else if (tagContent === "endif" || tagContent === "endunless") {
           depth--;
           if (!depth) { sections.at(-1).end = j; break; }
@@ -444,8 +446,7 @@ const handleLiquid = async (body, ctx, engine) => {
     .map(line => `{% ${line} %}`)
     .join("");
   const liquidTokens = tokenize(wrappedSrc);
-  const result = await render(liquidTokens, ctx, 0, liquidTokens.length, engine);
-  return rout(result);
+  return await render(liquidTokens, ctx, 0, liquidTokens.length, engine);
 };
 
 // Main render loop: walks tokens and dispatches to tag handlers.
@@ -623,7 +624,9 @@ const render = async (tokens, ctx, start, end, engine) => {
 
       // --- liquid ---
       } else if ((m = tag.match(/^liquid\s*([\s\S]*)$/))) {
-        output += await handleLiquid(m[1], ctx, engine);
+        const liquidResult = await handleLiquid(m[1], ctx, engine);
+        if (liquidResult?.__ctrl) { liquidResult.out = output + (liquidResult.out ?? ""); return liquidResult; }
+        output += typeof liquidResult === "string" ? liquidResult : rout(liquidResult);
         i++;
 
       // --- ifchanged ---
