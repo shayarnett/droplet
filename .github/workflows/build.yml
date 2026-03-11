@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install
+
+      - run: bun run build
+
+      - name: Check minified size under 30 KB
+        run: |
+          size=$(wc -c < droplet.min.js)
+          echo "droplet.min.js: ${size} bytes"
+          if [ "$size" -gt 30000 ]; then
+            echo "::error::droplet.min.js is ${size} bytes, exceeds 30000 byte limit"
+            exit 1
+          fi
+
+      - name: Run tests
+        run: bun test.js
