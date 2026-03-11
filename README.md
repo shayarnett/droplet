@@ -7,10 +7,15 @@ Droplet implements the [Liquid](https://shopify.github.io/liquid/) template lang
 ## Install
 
 ```
-npm install droplet
+npm install @shayarnett/droplet --registry=https://npm.pkg.github.com
 ```
 
-Or just copy `droplet.min.js` into your project.
+Or add the registry to your `.npmrc` once and install normally:
+
+```
+echo "@shayarnett:registry=https://npm.pkg.github.com" >> .npmrc
+npm install @shayarnett/droplet
+```
 
 ## Quick Start
 
@@ -140,10 +145,11 @@ Current results:
 
 | Suite | Pass Rate |
 |-------|-----------|
-| Liquid Ruby | 1359/1694 (80%) |
-| Shopify Production Recordings | 2145/2610 (82%) |
+| Basics | 707/713 (99%) |
+| Liquid Ruby | 1368/1694 (81%) |
+| Shopify Production Recordings | 2192/2610 (84%) |
 | Liquid Ruby (Lax Mode) | 96/102 (94%) |
-| **Total** | **4307/5118 (84%)** |
+| **Total** | **4363/5119 (85%)** |
 
 Most remaining failures require Ruby-specific types (Drops, BigDecimal precision, Range objects) or features that don't apply to JavaScript environments.
 
