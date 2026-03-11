@@ -254,9 +254,21 @@ const splitPipes = (expr) => {
 
 // Evaluate a full output expression: {{ expr | filter1 | filter2 }}
 // If raw=true, returns the raw value instead of coercing undefined to "".
+const CMP_RE = /(?:^|[^<>!=])(?:==|!=|<>|<=|>=|<|>| contains )(?!=)/;
+const hasComparison = (expr) => {
+  let q = 0;
+  for (let i = 0; i < expr.length; i++) {
+    const c = expr[i];
+    if ((c === "'" || c === '"') && !q) q = c;
+    else if (c === q) q = 0;
+    if (!q && CMP_RE.test(expr.slice(i))) return true;
+  }
+  return false;
+};
+
 const evalOutput = async (expr, ctx, engine, raw) => {
   const parts = splitPipes(expr);
-  let value = evalExpr(parts[0], ctx);
+  let value = hasComparison(parts[0]) ? evalCondition(parts[0], ctx) : evalExpr(parts[0], ctx);
   for (let i = 1; i < parts.length; i++) {
     value = await evalFilter(value, parts[i], ctx, engine);
   }
