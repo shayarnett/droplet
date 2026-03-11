@@ -152,7 +152,6 @@ Liquid Ruby (Lax Mode) ......... 96/102 passed
 Total: 4363 passed (85.2%)
 ```
 
-Most remaining failures require Ruby-specific types (Drops, BigDecimal precision, Range objects) or features that don't apply to JavaScript environments.
 
 ## Supported Liquid Features
 
