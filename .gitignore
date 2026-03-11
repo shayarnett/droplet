@@ -2,6 +2,10 @@ node_modules/
 bun.lock
 .claude/
 
+# Built files (CI builds fresh for publish)
+droplet.js
+droplet.min.js
+
 # Analysis/debug scripts (not part of the library)
 analyze-*.js
 check-ruby-overlap.js
