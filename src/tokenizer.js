@@ -1,3 +1,5 @@
+import { LiquidError } from "./utils.js";
+
 // Maps block-opening tags to their closing tags (comma-separated when multiple apply)
 const BLOCK_END_TAGS = {
   "if": "endif,endunless",
@@ -102,11 +104,7 @@ const tokenize = (src) => {
       const leadingStrip = src[openBrace + 2] === "-";
       const closeIdx = src.indexOf("}}", openBrace + 2);
 
-      if (closeIdx < 0) {
-        tokens.push(["t", "{"]);
-        pos = openBrace + 1;
-        continue;
-      }
+      if (closeIdx < 0) throw new LiquidError('unexpected end of template, expected "}}"');
 
       const trailingStrip = src[closeIdx - 1] === "-";
       const innerStart = openBrace + 2 + (leadingStrip ? 1 : 0);
@@ -123,11 +121,7 @@ const tokenize = (src) => {
       const leadingStrip = src[openBrace + 2] === "-";
       const closeIdx = src.indexOf("%}", openBrace + 2);
 
-      if (closeIdx < 0) {
-        tokens.push(["t", "{"]);
-        pos = openBrace + 1;
-        continue;
-      }
+      if (closeIdx < 0) throw new LiquidError('unexpected end of template, expected "%}"');
 
       const trailingStrip = src[closeIdx - 1] === "-";
       const innerStart = openBrace + 2 + (leadingStrip ? 1 : 0);

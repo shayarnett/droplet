@@ -3,8 +3,8 @@
 //        const engine = new Liquid({ globals: { site: "My Site" } });
 //        const html = await engine.parseAndRender("{{ site }}", { page: "Home" });
 
-const Droplet = require("@shayarnett/droplet");
-const partials = require("@shayarnett/droplet/ext/partials");
+const Droplet = require("../droplet");
+const partials = require("./partials");
 
 class Liquid {
   constructor(options = {}) {
@@ -201,4 +201,4 @@ class Liquid {
   }
 }
 
-module.exports = { Liquid };
+module.exports = { Liquid, LiquidError: Droplet.LiquidError };

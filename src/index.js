@@ -1,4 +1,4 @@
-import { rout, stringify } from "./utils.js";
+import { rout, stringify, LiquidError } from "./utils.js";
 import { BUILTIN_FILTERS, evalOutput, evalExpr, evalCondition } from "./eval.js";
 import { tokenize } from "./tokenizer.js";
 import { render } from "./render.js";
@@ -25,6 +25,7 @@ class Droplet {
 }
 
 Droplet.filters = BUILTIN_FILTERS;
+Droplet.LiquidError = LiquidError;
 Droplet._internals = { tokenize, render, rout, evalOutput, evalExpr, stringify, evalCondition };
 
 module.exports = Droplet;

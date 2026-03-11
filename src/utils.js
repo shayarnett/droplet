@@ -101,4 +101,13 @@ const stringify = (value) => {
   return "" + value;
 };
 
-export { isArr, arr, str, num, rout, M, EMPTY, BLANK, truthy, isEmpty, isBlank, liquidEq, rubyVal, stringify };
+class LiquidError extends Error {
+  constructor(message, token) {
+    super(message);
+    this.name = "LiquidError";
+    this.token = token || null;
+  }
+  static is(obj) { return obj instanceof LiquidError; }
+}
+
+export { isArr, arr, str, num, rout, M, EMPTY, BLANK, truthy, isEmpty, isBlank, liquidEq, rubyVal, stringify, LiquidError };
