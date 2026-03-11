@@ -1,368 +1,408 @@
 // src/utils.js
 var isArr = Array.isArray;
 var M = Math;
-var arr = (v) => isArr(v) ? v : v == null ? [] : [v];
-var str = (v) => v == null ? "" : v?.__f ? v % 1 === 0 ? (+v).toFixed(1) : ("" + +v).replace(/^(-?\d)e/, "$1.0e") : typeof v === "object" && !isArr(v) ? stringify(v) : "" + v;
-var num = (v) => {
-  if (v == null)
+var arr = (value) => isArr(value) ? value : value == null ? [] : [value];
+var str = (value) => {
+  if (value == null)
+    return "";
+  if (value?.__f) {
+    return value % 1 === 0 ? (+value).toFixed(1) : ("" + +value).replace(/^(-?\d)e/, "$1.0e");
+  }
+  if (typeof value === "object" && !isArr(value))
+    return stringify(value);
+  return "" + value;
+};
+var num = (value) => {
+  if (value == null)
     return 0;
-  if (v?.__f)
-    return v.valueOf();
-  const n = typeof v === "string" ? parseFloat(v) : +v;
+  if (value?.__f)
+    return value.valueOf();
+  const n = typeof value === "string" ? parseFloat(value) : +value;
   return isNaN(n) ? 0 : n;
 };
-var rout = (r) => typeof r === "string" ? r : r.out ?? "";
+var rout = (result) => typeof result === "string" ? result : result.out ?? "";
 var EMPTY = { __liquid: "empty", toString: () => "" };
 var BLANK = { __liquid: "blank", toString: () => "" };
-var truthy = (v) => v !== false && v != null && v !== BLANK;
-var isEmpty = (v) => v === "" || isArr(v) && !v.length || v != null && typeof v === "object" && !isArr(v) && !v.__liquid && !Object.keys(v).length;
-var isBlank = (v) => v == null || isEmpty(v) || v === false || typeof v === "string" && !v.trim();
-var liquidEq = (l, r) => {
-  if (r === EMPTY || r?.__liquid === "empty")
-    return isEmpty(l);
-  if (l === EMPTY || l?.__liquid === "empty")
-    return isEmpty(r);
-  if (r === BLANK || r?.__liquid === "blank")
-    return isBlank(l);
-  if (l === BLANK || l?.__liquid === "blank")
-    return isBlank(r);
-  const lv = l?.__f ? +l : l, rv = r?.__f ? +r : r;
+var truthy = (value) => value !== false && value != null && value !== BLANK;
+var isEmpty = (value) => value === "" || isArr(value) && !value.length || value != null && typeof value === "object" && !isArr(value) && !value.__liquid && !Object.keys(value).length;
+var isBlank = (value) => value == null || isEmpty(value) || value === false || typeof value === "string" && !value.trim();
+var liquidEq = (left, right) => {
+  if (right === EMPTY || right?.__liquid === "empty")
+    return isEmpty(left);
+  if (left === EMPTY || left?.__liquid === "empty")
+    return isEmpty(right);
+  if (right === BLANK || right?.__liquid === "blank")
+    return isBlank(left);
+  if (left === BLANK || left?.__liquid === "blank")
+    return isBlank(right);
+  const lv = left?.__f ? +left : left;
+  const rv = right?.__f ? +right : right;
   return lv === rv || lv == null && rv == null;
 };
-var rubyVal = (v) => {
-  if (v == null)
+var rubyVal = (value) => {
+  if (value == null)
     return '""';
-  if (v?.__f)
-    return v % 1 === 0 ? (+v).toFixed(1) : "" + +v;
-  if (isArr(v))
-    return "[" + v.map(rubyVal).join(", ") + "]";
-  if (typeof v === "object")
-    return stringify(v);
-  if (typeof v === "string")
-    return `"${v}"`;
-  return "" + v;
+  if (value?.__f)
+    return value % 1 === 0 ? (+value).toFixed(1) : "" + +value;
+  if (isArr(value))
+    return "[" + value.map(rubyVal).join(", ") + "]";
+  if (typeof value === "object")
+    return stringify(value);
+  if (typeof value === "string")
+    return `"${value}"`;
+  return "" + value;
 };
-var stringify = (v) => {
-  if (v == null)
+var stringify = (value) => {
+  if (value == null)
     return "";
-  if (v?.__f)
-    return v % 1 === 0 ? (+v).toFixed(1) : ("" + +v).replace(/^(-?\d)e/, "$1.0e");
-  if (v?.__liquid)
+  if (value?.__f) {
+    return value % 1 === 0 ? (+value).toFixed(1) : ("" + +value).replace(/^(-?\d)e/, "$1.0e");
+  }
+  if (value?.__liquid)
     return "";
-  if (isArr(v))
-    return v.__range ? `${v.first}..${v.last}` : v.flat(Infinity).map((x) => typeof x === "object" && x !== null ? stringify(x) : x ?? "").join("");
-  if (typeof v === "object")
-    return "{" + Object.entries(v).map(([k, val]) => `"${k}"=>${rubyVal(val)}`).join(", ") + "}";
-  return "" + v;
+  if (isArr(value)) {
+    if (value.__range)
+      return `${value.first}..${value.last}`;
+    return value.flat(Infinity).map((item) => typeof item === "object" && item !== null ? stringify(item) : item ?? "").join("");
+  }
+  if (typeof value === "object") {
+    return "{" + Object.entries(value).map(([key, val]) => `"${key}"=>${rubyVal(val)}`).join(", ") + "}";
+  }
+  return "" + value;
 };
 
 // src/filters.js
+var unescapeReplacement = (replacement) => {
+  if (typeof replacement !== "string")
+    return replacement;
+  let result = "";
+  let i = 0;
+  while (i < replacement.length) {
+    if (replacement[i] === "\\" && i + 1 < replacement.length) {
+      result += replacement[i + 1];
+      i += 2;
+    } else {
+      result += replacement[i];
+      i++;
+    }
+  }
+  return result;
+};
+var isFloat = (a, b) => a?.__f || b?.__f || ("" + a).includes(".") || ("" + b).includes(".");
+var deepFlatten = (input) => {
+  const result = [];
+  for (const item of arr(input)) {
+    if (isArr(item))
+      result.push(...deepFlatten(item));
+    else
+      result.push(item);
+  }
+  return result;
+};
 var BUILTIN_FILTERS = {
-  abs: (v) => M.abs(num(v)),
-  append: (v, a) => str(v) + str(a),
-  at_least: (v, a) => M.max(num(v), num(a)),
-  at_most: (v, a) => M.min(num(v), num(a)),
-  capitalize: (v) => {
-    const s = str(v);
+  abs: (value) => M.abs(num(value)),
+  append: (value, suffix) => str(value) + str(suffix),
+  at_least: (value, minimum) => M.max(num(value), num(minimum)),
+  at_most: (value, maximum) => M.min(num(value), num(maximum)),
+  capitalize: (value) => {
+    const s = str(value);
     return (s[0]?.toUpperCase() ?? "") + s.slice(1);
   },
-  ceil: (v) => M.ceil(num(v)),
-  compact: (v, k) => k ? arr(v).filter((x) => x?.[k] != null) : arr(v).filter((x) => x != null),
-  concat: (v, a) => arr(v).concat(arr(a)),
-  date: (v, fmt) => {
-    if (!fmt)
-      return v;
-    let d, tz;
-    if (v === "now" || v === "today" || v === "Now" || v === "Today")
-      d = new Date;
-    else if (typeof v === "number" || /^-?\d+$/.test("" + v))
-      d = new Date(+v * 1000);
-    else {
-      const sv = "" + v;
-      const dm = sv.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (dm)
-        d = new Date(+dm[1], +dm[2] - 1, +dm[3]);
-      else {
-        const tzm = sv.match(/([+-]\d{2}:?\d{2})\s*$/);
-        if (tzm)
-          tz = tzm[1].replace(":", "");
-        const tzn = sv.match(/\s([A-Z]{2,5})\s*$/);
-        if (tzn)
-          tz = tzn[1];
-        d = new Date(sv);
+  ceil: (value) => M.ceil(num(value)),
+  compact: (value, property) => property ? arr(value).filter((item) => item?.[property] != null) : arr(value).filter((item) => item != null),
+  concat: (value, other) => arr(value).concat(arr(other)),
+  date: (value, format) => {
+    if (!format)
+      return value;
+    let date, tz;
+    if (value === "now" || value === "today" || value === "Now" || value === "Today") {
+      date = new Date;
+    } else if (typeof value === "number" || /^-?\d+$/.test("" + value)) {
+      date = new Date(+value * 1000);
+    } else {
+      const sv = "" + value;
+      const dateOnlyMatch = sv.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (dateOnlyMatch) {
+        date = new Date(+dateOnlyMatch[1], +dateOnlyMatch[2] - 1, +dateOnlyMatch[3]);
+      } else {
+        const tzOffsetMatch = sv.match(/([+-]\d{2}:?\d{2})\s*$/);
+        if (tzOffsetMatch)
+          tz = tzOffsetMatch[1].replace(":", "");
+        const tzNameMatch = sv.match(/\s([A-Z]{2,5})\s*$/);
+        if (tzNameMatch)
+          tz = tzNameMatch[1];
+        date = new Date(sv);
       }
     }
-    if (isNaN(d))
-      return v;
+    if (isNaN(date))
+      return value;
     const pad = (n) => n < 10 ? "0" + n : "" + n;
     const pad3 = (n) => n < 10 ? "00" + n : n < 100 ? "0" + n : "" + n;
-    const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const D = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const mn = d.getMonth(), dw = d.getDay(), yr = d.getFullYear(), h12 = d.getHours() % 12 || 12;
-    const day = d.getDate(), hr = d.getHours(), min = d.getMinutes(), sec = d.getSeconds();
-    const jday = M.floor((d - new Date(yr, 0, 0)) / 86400000);
-    const off = d.getTimezoneOffset(), offH = pad(M.abs(M.trunc(off / 60))), offM = pad(M.abs(off % 60));
-    const offSign = off <= 0 ? "+" : "-", tzStr = tz || offSign + offH + offM;
-    const thu = new Date(d);
-    thu.setDate(day - (dw + 6) % 7 + 3);
-    const jan4 = new Date(thu.getFullYear(), 0, 4);
-    const isoWeek = 1 + M.round(((thu - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7);
-    const yday = jday - 1;
-    const wU = M.floor((yday + 7 - dw) / 7);
-    const wW = M.floor((yday + 7 - (dw + 6) % 7) / 7);
+    const MONTHS = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ];
+    const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const month = date.getMonth();
+    const dayOfWeek = date.getDay();
+    const year = date.getFullYear();
+    const hour12 = date.getHours() % 12 || 12;
+    const dayOfMonth = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const second = date.getSeconds();
+    const julianDay = M.floor((date - new Date(year, 0, 0)) / 86400000);
+    const tzOffset = date.getTimezoneOffset();
+    const offsetHours = pad(M.abs(M.trunc(tzOffset / 60)));
+    const offsetMinutes = pad(M.abs(tzOffset % 60));
+    const offsetSign = tzOffset <= 0 ? "+" : "-";
+    const tzString = tz || offsetSign + offsetHours + offsetMinutes;
+    const thursday = new Date(date);
+    thursday.setDate(dayOfMonth - (dayOfWeek + 6) % 7 + 3);
+    const jan4 = new Date(thursday.getFullYear(), 0, 4);
+    const isoWeek = 1 + M.round(((thursday - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7);
+    const yearDay = julianDay - 1;
+    const weekSunday = M.floor((yearDay + 7 - dayOfWeek) / 7);
+    const weekMonday = M.floor((yearDay + 7 - (dayOfWeek + 6) % 7) / 7);
     const map = {
-      "%Y": yr,
-      "%m": pad(mn + 1),
-      "%d": pad(day),
-      "%H": pad(hr),
-      "%M": pad(min),
-      "%S": pad(sec),
-      "%y": pad(yr % 100),
-      "%B": MN[mn],
-      "%b": MN[mn].slice(0, 3),
-      "%A": D[dw],
-      "%a": D[dw].slice(0, 3),
-      "%e": (day < 10 ? " " : "") + day,
-      "%l": (h12 < 10 ? " " : "") + h12,
-      "%I": pad(h12),
-      "%p": hr < 12 ? "AM" : "PM",
-      "%P": hr < 12 ? "am" : "pm",
-      "%j": pad3(jday),
-      "%C": M.floor(yr / 100),
-      "%h": MN[mn].slice(0, 3),
-      "%w": dw,
-      "%u": dw || 7,
+      "%Y": year,
+      "%m": pad(month + 1),
+      "%d": pad(dayOfMonth),
+      "%H": pad(hour),
+      "%M": pad(minute),
+      "%S": pad(second),
+      "%y": pad(year % 100),
+      "%B": MONTHS[month],
+      "%b": MONTHS[month].slice(0, 3),
+      "%A": DAYS[dayOfWeek],
+      "%a": DAYS[dayOfWeek].slice(0, 3),
+      "%e": (dayOfMonth < 10 ? " " : "") + dayOfMonth,
+      "%l": (hour12 < 10 ? " " : "") + hour12,
+      "%I": pad(hour12),
+      "%p": hour < 12 ? "AM" : "PM",
+      "%P": hour < 12 ? "am" : "pm",
+      "%j": pad3(julianDay),
+      "%C": M.floor(year / 100),
+      "%h": MONTHS[month].slice(0, 3),
+      "%w": dayOfWeek,
+      "%u": dayOfWeek || 7,
       "%%": "%",
-      "%s": M.floor(d.getTime() / 1000),
-      "%Z": tz || (d.toTimeString().match(/\((.+)\)/) ?? ["", ""])[1],
-      "%k": (hr < 10 ? " " : "") + hr,
-      "%N": "" + d.getMilliseconds(),
-      "%z": tzStr,
+      "%s": M.floor(date.getTime() / 1000),
+      "%Z": tz || (date.toTimeString().match(/\((.+)\)/) ?? ["", ""])[1],
+      "%k": (hour < 10 ? " " : "") + hour,
+      "%N": "" + date.getMilliseconds(),
+      "%z": tzString,
       "%n": `
 `,
       "%t": "\t",
-      "%U": pad(wU),
-      "%W": pad(wW),
+      "%U": pad(weekSunday),
+      "%W": pad(weekMonday),
       "%V": pad(isoWeek),
-      "%G": thu.getFullYear(),
-      "%g": pad(thu.getFullYear() % 100),
-      "%c": D[dw].slice(0, 3) + " " + MN[mn].slice(0, 3) + " " + (day < 10 ? " " : "") + day + " " + pad(hr) + ":" + pad(min) + ":" + pad(sec) + " " + yr,
-      "%X": pad(hr) + ":" + pad(min) + ":" + pad(sec),
-      "%F": yr + "-" + pad(mn + 1) + "-" + pad(day),
-      "%R": pad(hr) + ":" + pad(min),
-      "%T": pad(hr) + ":" + pad(min) + ":" + pad(sec),
-      "%r": pad(h12) + ":" + pad(min) + ":" + pad(sec) + " " + (hr < 12 ? "AM" : "PM")
+      "%G": thursday.getFullYear(),
+      "%g": pad(thursday.getFullYear() % 100),
+      "%c": DAYS[dayOfWeek].slice(0, 3) + " " + MONTHS[month].slice(0, 3) + " " + (dayOfMonth < 10 ? " " : "") + dayOfMonth + " " + pad(hour) + ":" + pad(minute) + ":" + pad(second) + " " + year,
+      "%X": pad(hour) + ":" + pad(minute) + ":" + pad(second),
+      "%F": year + "-" + pad(month + 1) + "-" + pad(dayOfMonth),
+      "%R": pad(hour) + ":" + pad(minute),
+      "%T": pad(hour) + ":" + pad(minute) + ":" + pad(second),
+      "%r": pad(hour12) + ":" + pad(minute) + ":" + pad(second) + " " + (hour < 12 ? "AM" : "PM")
     };
-    map["%x"] = map["%D"] = pad(mn + 1) + "/" + pad(day) + "/" + pad(yr % 100);
+    map["%x"] = map["%D"] = pad(month + 1) + "/" + pad(dayOfMonth) + "/" + pad(year % 100);
     map["%T"] = map["%X"];
-    return fmt.replace(/%[-_0^#:]?[YmdHMSyBbAaelIpPjsCchwuNkZznGgVUWDFRTrxXct%]/g, (m) => {
-      const mod = m.length === 3 ? m[1] : null, base = mod ? "%" + m[2] : m;
-      if (mod === "-")
-        return map[base] != null ? ("" + map[base]).replace(/^[0 ]/, "") : m;
-      if (mod === "_") {
+    return format.replace(/%[-_0^#:]?[YmdHMSyBbAaelIpPjsCchwuNkZznGgVUWDFRTrxXct%]/g, (match) => {
+      const modifier = match.length === 3 ? match[1] : null;
+      const base = modifier ? "%" + match[2] : match;
+      if (modifier === "-")
+        return map[base] != null ? ("" + map[base]).replace(/^[0 ]/, "") : match;
+      if (modifier === "_") {
         const s = "" + (map[base] ?? "");
         return s.replace(/^0/, " ");
       }
-      if (mod === "0")
-        return map[base] != null ? ("" + map[base]).replace(/^ /, "0") : m;
-      if (mod === "^" || mod === "#")
-        return map[base] != null ? ("" + map[base]).toUpperCase() : m;
-      if (m === "%:z")
-        return tzStr.slice(0, 3) + ":" + tzStr.slice(3);
-      return map[m] != null ? "" + map[m] : m;
+      if (modifier === "0")
+        return map[base] != null ? ("" + map[base]).replace(/^ /, "0") : match;
+      if (modifier === "^" || modifier === "#")
+        return map[base] != null ? ("" + map[base]).toUpperCase() : match;
+      if (match === "%:z")
+        return tzString.slice(0, 3) + ":" + tzString.slice(3);
+      return map[match] != null ? "" + map[match] : match;
     });
   },
-  default: (v, a, opts) => {
-    const e = v === "" || v == null || isArr(v) && !v.length || typeof v === "object" && v !== null && !isArr(v) && !Object.keys(v).length;
-    const af = opts?.allow_false;
-    if (af)
-      return e ? a ?? "" : v;
-    return v === false || e ? a ?? "" : v;
+  default: (value, fallback, opts) => {
+    const empty = value === "" || value == null || isArr(value) && !value.length || typeof value === "object" && value !== null && !isArr(value) && !Object.keys(value).length;
+    if (opts?.allow_false)
+      return empty ? fallback ?? "" : value;
+    return value === false || empty ? fallback ?? "" : value;
   },
-  divided_by: (v, a) => {
-    const isf = v?.__f || a?.__f || ("" + v).includes(".") || ("" + a).includes(".");
-    const na = num(a), nv = num(v);
-    if (!na)
+  divided_by: (value, divisor) => {
+    const hasFloat = value?.__f || divisor?.__f || ("" + value).includes(".") || ("" + divisor).includes(".");
+    const nDivisor = num(divisor);
+    const nValue = num(value);
+    if (!nDivisor)
       return Infinity;
-    if (!isf)
-      return M.trunc(nv / na);
-    const r = nv / na;
-    return r % 1 === 0 ? r.toFixed(1) : r;
+    if (!hasFloat)
+      return M.trunc(nValue / nDivisor);
+    const result = nValue / nDivisor;
+    return result % 1 === 0 ? result.toFixed(1) : result;
   },
-  downcase: (v) => str(v).toLowerCase(),
-  escape: (v) => v == null ? v : str(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"),
-  h: (v) => BUILTIN_FILTERS.escape(v),
-  escape_once: (v) => BUILTIN_FILTERS.escape(str(v).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")),
-  find: (v, k, ...r) => {
-    const a = arr(v);
-    return r.length && r[0] != null ? a.find((x) => x?.[k] == r[0]) : a.find((x) => x?.[k]);
+  downcase: (value) => str(value).toLowerCase(),
+  escape: (value) => value == null ? value : str(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;"),
+  h: (value) => BUILTIN_FILTERS.escape(value),
+  escape_once: (value) => BUILTIN_FILTERS.escape(str(value).replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")),
+  find: (value, key, ...rest) => {
+    const items = arr(value);
+    return rest.length && rest[0] != null ? items.find((item) => item?.[key] == rest[0]) : items.find((item) => item?.[key]);
   },
-  find_index: (v, k, ...r) => {
-    const a = arr(v);
-    const idx = r.length && r[0] != null ? a.findIndex((x) => x?.[k] == r[0]) : a.findIndex((x) => x?.[k]);
+  find_index: (value, key, ...rest) => {
+    const items = arr(value);
+    const idx = rest.length && rest[0] != null ? items.findIndex((item) => item?.[key] == rest[0]) : items.findIndex((item) => item?.[key]);
     return idx < 0 ? null : idx;
   },
-  first: (v) => {
-    if (typeof v === "string")
-      return v[0];
-    if (v && typeof v === "object" && !isArr(v)) {
-      const k = Object.keys(v);
-      return k.length ? [k[0], v[k[0]]] : undefined;
+  first: (value) => {
+    if (typeof value === "string")
+      return value[0];
+    if (value && typeof value === "object" && !isArr(value)) {
+      const keys = Object.keys(value);
+      return keys.length ? [keys[0], value[keys[0]]] : undefined;
     }
-    return isArr(v) ? v[0] : undefined;
+    return isArr(value) ? value[0] : undefined;
   },
-  flatten: (v) => arr(v).flat(Infinity),
-  floor: (v) => M.floor(num(v)),
-  has: (v, k, val) => {
-    const a = arr(v);
-    const ks = k.split(".");
-    return a.some((x) => {
-      let o = x;
-      for (const s of ks)
-        o = o?.[s];
-      return val !== undefined ? o === val : truthy(o);
+  flatten: (value) => arr(value).flat(Infinity),
+  floor: (value) => M.floor(num(value)),
+  has: (value, key, val) => {
+    const items = arr(value);
+    const keySegments = key.split(".");
+    return items.some((item) => {
+      let obj = item;
+      for (const seg of keySegments)
+        obj = obj?.[seg];
+      return val !== undefined ? obj === val : truthy(obj);
     });
   },
-  join: (v, a) => arr(v).map((x) => typeof x === "object" && x !== null && !isArr(x) ? stringify(x) : x).join(a === undefined ? " " : str(a ?? "")),
-  last: (v) => {
-    if (typeof v === "string")
-      return v[v.length - 1];
-    if (isArr(v))
-      return v[v.length - 1];
+  join: (value, separator) => arr(value).map((item) => typeof item === "object" && item !== null && !isArr(item) ? stringify(item) : item).join(separator === undefined ? " " : str(separator ?? "")),
+  last: (value) => {
+    if (typeof value === "string")
+      return value[value.length - 1];
+    if (isArr(value))
+      return value[value.length - 1];
     return;
   },
-  lstrip: (v) => str(v).replace(/^\s+/, ""),
-  map: (v, a) => arr(v).flat().map((x) => x && typeof x === "object" ? x[a] : undefined),
-  minus: (v, a) => {
-    const r = num(v) - num(a);
-    return (v?.__f || a?.__f || ("" + v).includes(".") || ("" + a).includes(".")) && r % 1 === 0 ? r.toFixed(1) : r;
+  lstrip: (value) => str(value).replace(/^\s+/, ""),
+  map: (value, property) => arr(value).flat().map((item) => item && typeof item === "object" ? item[property] : undefined),
+  minus: (value, subtrahend) => {
+    const result = num(value) - num(subtrahend);
+    return isFloat(value, subtrahend) && result % 1 === 0 ? result.toFixed(1) : result;
   },
-  modulo: (v, a) => {
-    const nv = num(v), na = num(a), r = nv % na;
-    const isf = v?.__f || a?.__f || ("" + v).includes(".") && !("" + v).includes("e") || ("" + a).includes(".") && !("" + a).includes("e");
-    return isf && r % 1 === 0 ? r.toFixed(1) : r;
+  modulo: (value, divisor) => {
+    const nValue = num(value);
+    const nDivisor = num(divisor);
+    const result = nValue % nDivisor;
+    const hasFloat = value?.__f || divisor?.__f || ("" + value).includes(".") && !("" + value).includes("e") || ("" + divisor).includes(".") && !("" + divisor).includes("e");
+    return hasFloat && result % 1 === 0 ? result.toFixed(1) : result;
   },
-  newline_to_br: (v) => str(v).replace(/\r?\n/g, `<br />
+  newline_to_br: (value) => str(value).replace(/\r?\n/g, `<br />
 `).replace(/\r/g, "<br />\r"),
-  plus: (v, a) => {
-    const r = num(v) + num(a);
-    return (v?.__f || a?.__f || ("" + v).includes(".") || ("" + a).includes(".")) && r % 1 === 0 ? r.toFixed(1) : r;
+  plus: (value, addend) => {
+    const result = num(value) + num(addend);
+    return isFloat(value, addend) && result % 1 === 0 ? result.toFixed(1) : result;
   },
-  prepend: (v, a) => str(a) + str(v),
-  reject: (v, k, ...rest) => {
-    const h = rest.length > 0 && rest[0] != null;
-    return arr(v).filter((x) => x != null && (h ? x?.[k] != rest[0] : !x?.[k]));
+  prepend: (value, prefix) => str(prefix) + str(value),
+  reject: (value, key, ...rest) => {
+    const hasValue = rest.length > 0 && rest[0] != null;
+    return arr(value).filter((item) => item != null && (hasValue ? item?.[key] != rest[0] : !item?.[key]));
   },
-  remove: (v, a) => str(v).split(str(a)).join(""),
-  remove_first: (v, a) => {
-    const s = str(v);
-    a = str(a);
-    const i = s.indexOf(a);
-    return i < 0 ? s : s.slice(0, i) + s.slice(i + a.length);
+  remove: (value, target) => str(value).split(str(target)).join(""),
+  remove_first: (value, target) => {
+    const s = str(value);
+    target = str(target);
+    const idx = s.indexOf(target);
+    return idx < 0 ? s : s.slice(0, idx) + s.slice(idx + target.length);
   },
-  remove_last: (v, a) => {
-    const s = str(v);
-    a = str(a);
-    const i = s.lastIndexOf(a);
-    return i < 0 ? s : s.slice(0, i) + s.slice(i + a.length);
+  remove_last: (value, target) => {
+    const s = str(value);
+    target = str(target);
+    const idx = s.lastIndexOf(target);
+    return idx < 0 ? s : s.slice(0, idx) + s.slice(idx + target.length);
   },
-  replace: (v, a, b) => {
-    const s = str(v);
-    let r = b ?? "";
-    if (typeof r === "string") {
-      let o = "", i = 0;
-      while (i < r.length) {
-        if (r[i] === "\\" && i + 1 < r.length) {
-          o += r[i + 1];
-          i += 2;
-        } else {
-          o += r[i];
-          i++;
-        }
-      }
-      r = o;
-    }
-    a = a == null ? "" : "" + a;
-    if (a === "")
+  replace: (value, search, replacement) => {
+    const s = str(value);
+    let r = unescapeReplacement(replacement ?? "");
+    search = search == null ? "" : "" + search;
+    if (search === "")
       return s ? r + s.split("").join(r) + r : r;
-    return s.split(a).join(r);
+    return s.split(search).join(r);
   },
-  replace_first: (v, a, b) => {
-    const s = str(v);
-    let r = b ?? "";
-    if (typeof r === "string") {
-      let o = "", i = 0;
-      while (i < r.length) {
-        if (r[i] === "\\" && i + 1 < r.length) {
-          o += r[i + 1];
-          i += 2;
-        } else {
-          o += r[i];
-          i++;
-        }
-      }
-      r = o;
-    }
-    const idx = s.indexOf(a);
-    return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + a.length);
+  replace_first: (value, search, replacement) => {
+    const s = str(value);
+    let r = unescapeReplacement(replacement ?? "");
+    const idx = s.indexOf(search);
+    return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
-  replace_last: (v, a, b) => {
-    const s = str(v);
-    let r = b ?? "";
-    if (typeof r === "string") {
-      let o = "", i = 0;
-      while (i < r.length) {
-        if (r[i] === "\\" && i + 1 < r.length) {
-          o += r[i + 1];
-          i += 2;
-        } else {
-          o += r[i];
-          i++;
-        }
-      }
-      r = o;
-    }
-    const idx = s.lastIndexOf(a);
-    return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + a.length);
+  replace_last: (value, search, replacement) => {
+    const s = str(value);
+    let r = unescapeReplacement(replacement ?? "");
+    const idx = s.lastIndexOf(search);
+    return idx < 0 ? s : s.slice(0, idx) + r + s.slice(idx + search.length);
   },
-  reverse: (v) => arr(v).slice().reverse(),
-  round: (v, a) => {
-    const p = 10 ** (num(a) || 0);
-    return M.round(num(v) * p) / p;
+  reverse: (value) => arr(value).slice().reverse(),
+  round: (value, precision) => {
+    const factor = 10 ** (num(precision) || 0);
+    return M.round(num(value) * factor) / factor;
   },
-  rstrip: (v) => str(v).replace(/\s+$/, ""),
-  size: (v) => v == null ? 0 : typeof v === "string" || isArr(v) ? v.length : typeof v === "number" ? Number.isInteger(v) ? 8 : 0 : typeof v === "object" ? Object.keys(v).length : 0,
-  slice: (v, a, b) => {
-    if (isArr(v)) {
-      a = +a;
-      b = b != null ? +b : 1;
-      if (b < 0)
+  rstrip: (value) => str(value).replace(/\s+$/, ""),
+  size: (value) => {
+    if (value == null)
+      return 0;
+    if (typeof value === "string" || isArr(value))
+      return value.length;
+    if (typeof value === "number")
+      return Number.isInteger(value) ? 8 : 0;
+    if (typeof value === "object")
+      return Object.keys(value).length;
+    return 0;
+  },
+  slice: (value, start, length) => {
+    if (isArr(value)) {
+      start = +start;
+      length = length != null ? +length : 1;
+      if (length < 0)
         return [];
-      if (a < 0) {
-        if (-a > v.length)
+      if (start < 0) {
+        if (-start > value.length)
           return [];
-        a = v.length + a;
+        start = value.length + start;
       }
-      return v.slice(a, a + b);
+      return value.slice(start, start + length);
     }
-    const s = str(v);
-    a = +a;
-    b = b != null ? +b : 1;
-    if (b < 0)
+    const s = str(value);
+    start = +start;
+    length = length != null ? +length : 1;
+    if (length < 0)
       return "";
-    if (a < 0) {
-      if (-a > s.length)
+    if (start < 0) {
+      if (-start > s.length)
         return "";
-      a = s.length + a;
+      start = s.length + start;
     }
-    return s.slice(a, a + b);
+    return s.slice(start, start + length);
   },
-  sort: (v, k) => arr(v).slice().sort((a, b) => {
-    const x = k ? a?.[k] : a, y = k ? b?.[k] : b;
+  sort: (value, key) => arr(value).slice().sort((a, b) => {
+    const x = key ? a?.[key] : a;
+    const y = key ? b?.[key] : b;
     return x > y ? 1 : x < y ? -1 : 0;
   }),
-  sort_natural: (v, k) => arr(v).slice().sort((a, b) => {
-    const x = k ? a?.[k] : a, y = k ? b?.[k] : b;
+  sort_natural: (value, key) => arr(value).slice().sort((a, b) => {
+    const x = key ? a?.[key] : a;
+    const y = key ? b?.[key] : b;
     if (x == null && y == null)
       return 0;
     if (x == null)
@@ -371,125 +411,120 @@ var BUILTIN_FILTERS = {
       return -1;
     return str(x).toLowerCase().localeCompare(str(y).toLowerCase());
   }),
-  split: (v, a) => {
-    if (v == null || v === false || v === true)
+  split: (value, delimiter) => {
+    if (value == null || value === false || value === true)
       return [];
-    const s = str(v);
+    const s = str(value);
     if (!s)
       return [];
-    if (a === " ") {
-      const r2 = s.replace(/^[ \t\n\r\f]+|[ \t\n\r\f]+$/g, "").split(/[ \t\n\r\f]+/);
-      return r2[0] === "" ? [] : r2;
+    if (delimiter === " ") {
+      const trimmed = s.replace(/^[ \t\n\r\f]+|[ \t\n\r\f]+$/g, "").split(/[ \t\n\r\f]+/);
+      return trimmed[0] === "" ? [] : trimmed;
     }
-    const r = s.split(a == null ? "" : str(a));
-    while (r.length > 1 && r.at(-1) === "")
-      r.pop();
-    return r;
+    const parts = s.split(delimiter == null ? "" : str(delimiter));
+    while (parts.length > 1 && parts.at(-1) === "")
+      parts.pop();
+    return parts;
   },
-  strip: (v) => str(v).trim(),
-  strip_html: (v) => str(v).replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]*>/g, ""),
-  strip_newlines: (v) => str(v).replace(/\r?\n|\r/g, ""),
-  sum: (v, k) => {
-    const flat = (a) => {
-      const r = [];
-      for (const x of arr(a))
-        isArr(x) ? r.push(...flat(x)) : r.push(x);
-      return r;
-    };
-    const toN = (x) => {
-      const raw = k ? x?.[k] : x;
+  strip: (value) => str(value).trim(),
+  strip_html: (value) => str(value).replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]*>/g, ""),
+  strip_newlines: (value) => str(value).replace(/\r?\n|\r/g, ""),
+  sum: (value, key) => {
+    const toNum = (item) => {
+      const raw = key ? item?.[key] : item;
       if (raw == null || typeof raw === "boolean" || typeof raw === "object")
         return 0;
       const n = +raw;
       return isNaN(n) ? 0 : n;
     };
-    if (!isArr(v))
-      return toN(v);
-    return flat(v).reduce((s, x) => s + toN(x), 0);
+    if (!isArr(value))
+      return toNum(value);
+    return deepFlatten(value).reduce((sum, item) => sum + toNum(item), 0);
   },
-  times: (v, a) => {
-    const isf = v?.__f || a?.__f || ("" + v).includes(".") || ("" + a).includes(".");
-    let r = num(v) * num(a);
-    if (isf) {
-      r = +r.toPrecision(12);
-      return r % 1 === 0 ? r.toFixed(1) : r;
+  times: (value, multiplier) => {
+    const hasFloat = value?.__f || multiplier?.__f || ("" + value).includes(".") || ("" + multiplier).includes(".");
+    let result = num(value) * num(multiplier);
+    if (hasFloat) {
+      result = +result.toPrecision(12);
+      return result % 1 === 0 ? result.toFixed(1) : result;
     }
-    return r;
+    return result;
   },
-  truncate: (v, a, b) => {
-    v = str(v);
-    a = a != null ? num(a) : 50;
-    b = b ?? "...";
-    return v.length <= a ? v : v.slice(0, M.max(0, a - b.length)) + b;
+  truncate: (value, length, ellipsis) => {
+    value = str(value);
+    length = length != null ? num(length) : 50;
+    ellipsis = ellipsis ?? "...";
+    return value.length <= length ? value : value.slice(0, M.max(0, length - ellipsis.length)) + ellipsis;
   },
-  truncatewords: (v, a, b) => {
-    v = str(v);
-    const s = v.replace(/^[ \t\n\r\f\v]+/, "");
-    const w = s.split(/[ \t\n\r\f\v]+/);
-    a = a != null ? num(a) : 15;
-    b = b ?? "...";
-    return w.length <= a ? w.join(" ") : w.slice(0, a).join(" ") + b;
+  truncatewords: (value, wordCount, ellipsis) => {
+    value = str(value);
+    const trimmed = value.replace(/^[ \t\n\r\f\v]+/, "");
+    const words = trimmed.split(/[ \t\n\r\f\v]+/);
+    wordCount = wordCount != null ? num(wordCount) : 15;
+    ellipsis = ellipsis ?? "...";
+    return words.length <= wordCount ? words.join(" ") : words.slice(0, wordCount).join(" ") + ellipsis;
   },
-  uniq: (v, k) => {
-    const a = arr(v);
-    if (!k)
-      return [...new Set(a)];
+  uniq: (value, key) => {
+    const items = arr(value);
+    if (!key)
+      return [...new Set(items)];
     const seen = new Set;
-    return a.filter((x) => {
-      const val = x?.[k];
+    return items.filter((item) => {
+      const val = item?.[key];
       if (seen.has(val))
         return false;
       seen.add(val);
       return true;
     });
   },
-  upcase: (v) => str(v).toUpperCase(),
-  url_decode: (v) => {
-    const s = str(v);
-    let o = "", i = 0;
+  upcase: (value) => str(value).toUpperCase(),
+  url_decode: (value) => {
+    const s = str(value);
+    let result = "";
+    let i = 0;
     while (i < s.length) {
       if (s[i] === "+") {
-        o += " ";
+        result += " ";
         i++;
       } else if (s[i] === "%" && /^%[0-9A-Fa-f]{2}/.test(s.slice(i))) {
-        o += decodeURIComponent(s.slice(i, i + 3));
+        result += decodeURIComponent(s.slice(i, i + 3));
         i += 3;
       } else if (s[i] === "%") {
-        o += s.slice(i, i + 2);
+        result += s.slice(i, i + 2);
         i += 2;
       } else {
-        o += s[i];
+        result += s[i];
         i++;
       }
     }
-    return o;
+    return result;
   },
-  url_encode: (v) => v == null ? null : encodeURIComponent(str(v)).replace(/%20/g, "+"),
-  where: (v, k, ...rest) => {
-    if (!k && k !== 0)
-      return arr(v);
-    const h = rest.length > 0;
-    const eq = (a, b) => {
+  url_encode: (value) => value == null ? null : encodeURIComponent(str(value)).replace(/%20/g, "+"),
+  where: (value, key, ...rest) => {
+    if (!key && key !== 0)
+      return arr(value);
+    const hasTarget = rest.length > 0;
+    const looseEq = (a, b) => {
       if (typeof a !== "object" && typeof b !== "object")
         return a == b;
       if (a === b)
         return true;
       if (isArr(a) && isArr(b))
-        return a.length === b.length && a.every((v2, i) => v2 == b[i]);
+        return a.length === b.length && a.every((v, i) => v == b[i]);
       return false;
     };
-    return arr(v).filter((x) => x != null && (h ? eq(x?.[k], rest[0]) : x?.[k]));
+    return arr(value).filter((item) => item != null && (hasTarget ? looseEq(item?.[key], rest[0]) : item?.[key]));
   },
-  base64_encode: (v) => {
-    const s = str(v);
+  base64_encode: (value) => {
+    const s = str(value);
     try {
       return btoa(unescape(encodeURIComponent(s)));
     } catch (e) {
       return btoa(s);
     }
   },
-  base64_decode: (v) => {
-    const s = str(v);
+  base64_decode: (value) => {
+    const s = str(value);
     try {
       return decodeURIComponent(escape(atob(s)));
     } catch (e) {
@@ -500,384 +535,397 @@ var BUILTIN_FILTERS = {
       }
     }
   },
-  base64_url_safe_encode: (v) => BUILTIN_FILTERS.base64_encode(v).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
-  base64_url_safe_decode: (v) => {
-    let s = str(v).replace(/-/g, "+").replace(/_/g, "/");
+  base64_url_safe_encode: (value) => BUILTIN_FILTERS.base64_encode(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
+  base64_url_safe_decode: (value) => {
+    let s = str(value).replace(/-/g, "+").replace(/_/g, "/");
     while (s.length % 4)
       s += "=";
     return BUILTIN_FILTERS.base64_decode(s);
   },
-  json: (v) => JSON.stringify(v ?? null),
-  image_url: (v, ...a) => {
-    const u = str(v && typeof v === "object" ? v.url || v.src || v : v);
-    const o = a.find((x) => x && typeof x === "object" && !isArr(x));
-    if (!o)
-      return u;
-    const q = Object.entries(o).map(([k, v2]) => k + "=" + (v2 ?? "")).join("&");
-    return q ? u + "?" + q : u;
+  json: (value) => JSON.stringify(value ?? null),
+  image_url: (value, ...args) => {
+    const url = str(value && typeof value === "object" ? value.url || value.src || value : value);
+    const opts = args.find((arg) => arg && typeof arg === "object" && !isArr(arg));
+    if (!opts)
+      return url;
+    const query = Object.entries(opts).map(([k, v]) => k + "=" + (v ?? "")).join("&");
+    return query ? url + "?" + query : url;
   },
-  product_img_url: (v, ...a) => {
-    const u = str(v && typeof v === "object" ? v.url || v.src || v : v);
-    const o = a.find((x) => x && typeof x === "object" && !isArr(x));
-    if (o) {
-      const q = Object.entries(o).map(([k, v2]) => k + "=" + (v2 ?? "")).join("&");
-      return q ? u + "?" + q : u;
+  product_img_url: (value, ...args) => {
+    const url = str(value && typeof value === "object" ? value.url || value.src || value : value);
+    const opts = args.find((arg) => arg && typeof arg === "object" && !isArr(arg));
+    if (opts) {
+      const query = Object.entries(opts).map(([k, v]) => k + "=" + (v ?? "")).join("&");
+      return query ? url + "?" + query : url;
     }
-    const p = a.filter((x) => typeof x !== "object");
-    return u + "?arg1=" + (p[0] ?? "") + "&arg2=" + (p[1] ?? "");
+    const positional = args.filter((arg) => typeof arg !== "object");
+    return url + "?arg1=" + (positional[0] ?? "") + "&arg2=" + (positional[1] ?? "");
   }
 };
 
 // src/eval.js
 var resolve = (path, ctx) => {
   path = path.replace(/\s*\.\s*/g, ".").replace(/\s*\[\s*/g, "[").replace(/\s*\]\s*/g, "]").trim();
-  if (path[0] === "[" && path[1] === "[" && (path[2] === "'" || path[2] === '"'))
+  if (path[0] === "[" && path[1] === "[" && (path[2] === "'" || path[2] === '"')) {
     path = path.slice(1);
-  const segs = [];
-  let i = 0;
-  while (i < path.length) {
-    if (path[i] === "[") {
-      i++;
-      while (i < path.length && path[i] === " ")
-        i++;
-      if (path[i] === "'" || path[i] === '"') {
-        const q = path[i];
-        i++;
+  }
+  const segments = [];
+  let pos = 0;
+  while (pos < path.length) {
+    if (path[pos] === "[") {
+      pos++;
+      while (pos < path.length && path[pos] === " ")
+        pos++;
+      if (path[pos] === "'" || path[pos] === '"') {
+        const quote = path[pos];
+        pos++;
         let key = "";
-        while (i < path.length && path[i] !== q) {
-          key += path[i];
-          i++;
+        while (pos < path.length && path[pos] !== quote) {
+          key += path[pos];
+          pos++;
         }
-        i++;
-        while (i < path.length && path[i] === " ")
-          i++;
-        if (path[i] === "]")
-          i++;
-        segs.push({ type: "blit", val: key });
+        pos++;
+        while (pos < path.length && path[pos] === " ")
+          pos++;
+        if (path[pos] === "]")
+          pos++;
+        segments.push({ type: "blit", val: key });
       } else {
-        let key = "", depth = 1;
-        while (i < path.length) {
-          if (path[i] === "[")
+        let key = "";
+        let depth = 1;
+        while (pos < path.length) {
+          if (path[pos] === "[")
             depth++;
-          if (path[i] === "]") {
+          if (path[pos] === "]") {
             depth--;
             if (!depth)
               break;
           }
-          key += path[i];
-          i++;
+          key += path[pos];
+          pos++;
         }
-        i++;
+        pos++;
         if (/^-?\d+$/.test(key))
-          segs.push({ type: "idx", val: +key });
+          segments.push({ type: "idx", val: +key });
         else if (/^-?\d+\.\d+$/.test(key))
-          segs.push({ type: "blit", val: key });
+          segments.push({ type: "blit", val: key });
         else
-          segs.push({ type: "var", val: key });
+          segments.push({ type: "var", val: key });
       }
-    } else if (path[i] === ".") {
-      i++;
+    } else if (path[pos] === ".") {
+      pos++;
     } else {
       let key = "";
-      while (i < path.length && path[i] !== "." && path[i] !== "[") {
-        key += path[i];
-        i++;
+      while (pos < path.length && path[pos] !== "." && path[pos] !== "[") {
+        key += path[pos];
+        pos++;
       }
       if (key)
-        segs.push({ type: "lit", val: key });
+        segments.push({ type: "lit", val: key });
     }
   }
-  let v = ctx;
-  for (const seg of segs) {
-    if (v == null)
+  let value = ctx;
+  for (const seg of segments) {
+    if (value == null)
       return;
     if (seg.type === "var") {
       const key = resolve(seg.val, ctx);
-      v = v?.[key];
+      value = value?.[key];
     } else if (seg.type === "idx") {
-      if (typeof v === "string")
-        v = undefined;
-      else if (isArr(v) && seg.val < 0)
-        v = v[v.length + seg.val];
+      if (typeof value === "string")
+        value = undefined;
+      else if (isArr(value) && seg.val < 0)
+        value = value[value.length + seg.val];
       else
-        v = v?.[seg.val];
+        value = value?.[seg.val];
     } else if (seg.type === "blit") {
-      if (typeof v === "string")
-        v = undefined;
+      if (typeof value === "string")
+        value = undefined;
       else
-        v = v?.[seg.val];
+        value = value?.[seg.val];
     } else {
-      if (isArr(v)) {
+      if (isArr(value)) {
         if (seg.val === "first")
-          v = v[0];
+          value = value[0];
         else if (seg.val === "last")
-          v = v[v.length - 1];
+          value = value[value.length - 1];
         else if (seg.val === "size")
-          v = v.length;
+          value = value.length;
         else
-          v = v?.[seg.val];
-      } else if (v && typeof v === "object") {
-        if (seg.val === "first" && !(seg.val in v)) {
-          const k = Object.keys(v);
-          v = k.length ? [k[0], v[k[0]]] : undefined;
-        } else if (seg.val === "last" && !(seg.val in v)) {
-          v = undefined;
-        } else if (seg.val === "size" && !(seg.val in v))
-          v = Object.keys(v).length;
+          value = value?.[seg.val];
+      } else if (value && typeof value === "object") {
+        if (seg.val === "first" && !(seg.val in value)) {
+          const keys = Object.keys(value);
+          value = keys.length ? [keys[0], value[keys[0]]] : undefined;
+        } else if (seg.val === "last" && !(seg.val in value)) {
+          value = undefined;
+        } else if (seg.val === "size" && !(seg.val in value))
+          value = Object.keys(value).length;
         else
-          v = v?.[seg.val];
-      } else if (typeof v === "string") {
+          value = value?.[seg.val];
+      } else if (typeof value === "string") {
         if (seg.val === "size")
-          v = v.length;
+          value = value.length;
         else if (seg.val === "first")
-          v = v[0];
+          value = value[0];
         else if (seg.val === "last")
-          v = v[v.length - 1];
+          value = value[value.length - 1];
         else
-          v = undefined;
+          value = undefined;
       } else {
-        v = v?.[seg.val];
+        value = value?.[seg.val];
       }
     }
   }
-  return v;
+  return value;
 };
-var parseLiteral = (s) => {
-  s = s.trim();
-  if (s === "true")
+var parseLiteral = (str2) => {
+  str2 = str2.trim();
+  if (str2 === "true")
     return true;
-  if (s === "false")
+  if (str2 === "false")
     return false;
-  if (s === "nil" || s === "null")
+  if (str2 === "nil" || str2 === "null")
     return null;
-  if (/^-?\d+$/.test(s))
-    return parseInt(s, 10);
-  if (/^-?\d+\.\d+$/.test(s)) {
-    const n = new Number(parseFloat(s));
+  if (/^-?\d+$/.test(str2))
+    return parseInt(str2, 10);
+  if (/^-?\d+\.\d+$/.test(str2)) {
+    const n = new Number(parseFloat(str2));
     n.__f = 1;
     return n;
   }
-  if ((s[0] === '"' || s[0] === "'") && s.length >= 2) {
-    const q = s[0];
+  if ((str2[0] === '"' || str2[0] === "'") && str2.length >= 2) {
+    const quote = str2[0];
     let i = 1;
-    while (i < s.length && s[i] !== q)
+    while (i < str2.length && str2[i] !== quote)
       i++;
-    if (i < s.length)
-      return s.slice(1, i);
+    if (i < str2.length)
+      return str2.slice(1, i);
   }
   return;
 };
-var evalExpr = (s, ctx) => {
-  s = s.trim();
-  if (!s)
+var evalExpr = (expr, ctx) => {
+  expr = expr.trim();
+  if (!expr)
     return null;
-  const rangeMatch = s.match(/^\((.+?)\.\.\.?(.+?)\)$/);
+  const rangeMatch = expr.match(/^\((.+?)\.\.\.?(.+?)\)$/);
   if (rangeMatch) {
     const from = parseInt(evalExpr(rangeMatch[1].trim(), ctx)) || 0;
     const to = parseInt(evalExpr(rangeMatch[2].trim(), ctx)) || 0;
-    const a = [];
+    const range = [];
     if (from <= to)
       for (let n = from;n <= to; n++)
-        a.push(n);
-    a.__range = true;
-    a.first = a[0];
-    a.last = a[a.length - 1];
-    a.toString = () => `${from}..${to}`;
-    return a;
+        range.push(n);
+    range.__range = true;
+    range.first = range[0];
+    range.last = range[range.length - 1];
+    range.toString = () => `${from}..${to}`;
+    return range;
   }
-  let lit = parseLiteral(s);
-  if (lit !== undefined)
-    return lit;
-  if (s === "nil" || s === "null")
+  let literal = parseLiteral(expr);
+  if (literal !== undefined)
+    return literal;
+  if (expr === "nil" || expr === "null")
     return null;
-  if (ctx.__counters && s in ctx.__counters && !ctx.__assigns?.has(s))
-    return ctx.__counters[s];
-  const v = resolve(s, ctx);
-  if (v !== undefined)
-    return v;
-  const ft = s.match(/^('[^']*'|"[^"]*"|\S+)/);
-  if (ft && ft[0] !== s) {
-    lit = parseLiteral(ft[0]);
-    if (lit !== undefined)
-      return lit;
-    if (ft[0] === "nil" || ft[0] === "null")
-      return null;
-    return resolve(ft[0], ctx);
+  if (ctx.__counters && expr in ctx.__counters && !ctx.__assigns?.has(expr)) {
+    return ctx.__counters[expr];
   }
-  const nm = s.match(/^-?\d+(\.\d+)?/);
-  if (nm && nm[0] !== s) {
-    lit = parseLiteral(nm[0]);
-    if (lit !== undefined)
-      return lit;
+  const resolved = resolve(expr, ctx);
+  if (resolved !== undefined)
+    return resolved;
+  const firstToken = expr.match(/^('[^']*'|"[^"]*"|\S+)/);
+  if (firstToken && firstToken[0] !== expr) {
+    literal = parseLiteral(firstToken[0]);
+    if (literal !== undefined)
+      return literal;
+    if (firstToken[0] === "nil" || firstToken[0] === "null")
+      return null;
+    return resolve(firstToken[0], ctx);
+  }
+  const numMatch = expr.match(/^-?\d+(\.\d+)?/);
+  if (numMatch && numMatch[0] !== expr) {
+    literal = parseLiteral(numMatch[0]);
+    if (literal !== undefined)
+      return literal;
   }
   return;
 };
-var evalFilter = async (val, filterStr, ctx, engine) => {
-  const m = filterStr.match(/^\s*(\w+)[^:]*(?::\s*(.*))?/);
-  if (!m)
-    return val;
-  const name = m[1];
-  const fn = engine._filters[name] ?? BUILTIN_FILTERS[name];
-  if (!fn)
-    return val;
+var evalFilter = async (value, filterStr, ctx, engine) => {
+  const match = filterStr.match(/^\s*(\w+)[^:]*(?::\s*(.*))?/);
+  if (!match)
+    return value;
+  const filterName = match[1];
+  const filterFn = engine._filters[filterName] ?? BUILTIN_FILTERS[filterName];
+  if (!filterFn)
+    return value;
   let args = [];
-  if (m[2]) {
-    let raw = m[2], arg = "", inQ = 0, skip = 0;
-    for (const c of raw) {
-      if (skip && c !== ",")
+  if (match[2]) {
+    let raw = match[2];
+    let currentArg = "";
+    let inQuote = 0;
+    let skipToComma = 0;
+    for (const ch of raw) {
+      if (skipToComma && ch !== ",")
         continue;
-      skip = 0;
-      if ((c === '"' || c === "'") && !inQ)
-        inQ = c;
-      else if (c === inQ) {
-        inQ = 0;
-        skip = 1;
-      } else if (c === "," && !inQ) {
-        args.push(arg);
-        arg = "";
+      skipToComma = 0;
+      if ((ch === '"' || ch === "'") && !inQuote)
+        inQuote = ch;
+      else if (ch === inQuote) {
+        inQuote = 0;
+        skipToComma = 1;
+      } else if (ch === "," && !inQuote) {
+        args.push(currentArg);
+        currentArg = "";
         continue;
       }
-      arg += c;
+      currentArg += ch;
     }
-    if (arg)
-      args.push(arg);
-    const positional = [], named = {};
-    for (const a of args) {
-      const kv = a.trim().match(/^(\w+)\s*:\s*([\s\S]+)$/);
-      if (kv)
-        named[kv[1]] = evalExpr(kv[2].trim(), ctx);
-      else {
-        const v = evalExpr(a.trim(), ctx);
-        positional.push(v === undefined ? null : v);
+    if (currentArg)
+      args.push(currentArg);
+    const positional = [];
+    const named = {};
+    for (const arg of args) {
+      const kvMatch = arg.trim().match(/^(\w+)\s*:\s*([\s\S]+)$/);
+      if (kvMatch) {
+        named[kvMatch[1]] = evalExpr(kvMatch[2].trim(), ctx);
+      } else {
+        const val = evalExpr(arg.trim(), ctx);
+        positional.push(val === undefined ? null : val);
       }
     }
     args = positional;
     if (Object.keys(named).length)
       args.push(named);
   }
-  return engine._filters[name] ? await fn.call(engine.options, val, ...args) : fn(val, ...args);
+  return engine._filters[filterName] ? await filterFn.call(engine.options, value, ...args) : filterFn(value, ...args);
 };
-var splitPipes = (s) => {
+var splitPipes = (expr) => {
   const parts = [];
-  let last = 0, q = 0;
-  for (let i = 0;i < s.length; i++) {
-    const c = s[i];
-    if ((c === "'" || c === '"') && !q)
-      q = c;
-    else if (c === q) {
-      q = 0;
-      if (s[i + 1] === c)
+  let lastSplit = 0;
+  let quote = 0;
+  for (let i = 0;i < expr.length; i++) {
+    const ch = expr[i];
+    if ((ch === "'" || ch === '"') && !quote)
+      quote = ch;
+    else if (ch === quote) {
+      quote = 0;
+      if (expr[i + 1] === ch)
         i++;
     }
-    if (!q && c === "|") {
-      parts.push(s.slice(last, i));
-      last = i + 1;
+    if (!quote && ch === "|") {
+      parts.push(expr.slice(lastSplit, i));
+      lastSplit = i + 1;
     }
   }
-  parts.push(s.slice(last));
+  parts.push(expr.slice(lastSplit));
   return parts;
 };
 var evalOutput = async (expr, ctx, engine, raw) => {
   const parts = splitPipes(expr);
-  let val = evalExpr(parts[0], ctx);
-  for (let i = 1;i < parts.length; i++)
-    val = await evalFilter(val, parts[i], ctx, engine);
-  return raw ? val : val ?? "";
+  let value = evalExpr(parts[0], ctx);
+  for (let i = 1;i < parts.length; i++) {
+    value = await evalFilter(value, parts[i], ctx, engine);
+  }
+  return raw ? value : value ?? "";
 };
-var splitFirstLogical = (s) => {
-  let q = 0, depth = 0;
-  for (let i = 0;i < s.length; i++) {
-    const c = s[i];
-    if ((c === "'" || c === '"') && !q)
-      q = c;
-    else if (c === q)
-      q = 0;
-    if (q)
+var splitFirstLogical = (expr) => {
+  let quote = 0;
+  let parenDepth = 0;
+  for (let i = 0;i < expr.length; i++) {
+    const ch = expr[i];
+    if ((ch === "'" || ch === '"') && !quote)
+      quote = ch;
+    else if (ch === quote)
+      quote = 0;
+    if (quote)
       continue;
-    if (c === "(")
-      depth++;
-    if (c === ")")
-      depth--;
-    if (depth)
+    if (ch === "(")
+      parenDepth++;
+    if (ch === ")")
+      parenDepth--;
+    if (parenDepth)
       continue;
-    if (s.substr(i, 4) === " or ")
-      return [s.slice(0, i), "or", s.slice(i + 4)];
-    if (s.substr(i, 5) === " and ")
-      return [s.slice(0, i), "and", s.slice(i + 5)];
+    if (expr.substr(i, 4) === " or ")
+      return [expr.slice(0, i), "or", expr.slice(i + 4)];
+    if (expr.substr(i, 5) === " and ")
+      return [expr.slice(0, i), "and", expr.slice(i + 5)];
   }
   return null;
 };
 var evalCondition = (expr, ctx) => {
   expr = expr.trim();
   while (expr[0] === "(" && expr.at(-1) === ")") {
-    let d = 0, ok = true;
-    for (let pi = 0;pi < expr.length - 1; pi++) {
-      if (expr[pi] === "(")
-        d++;
-      if (expr[pi] === ")")
-        d--;
-      if (d === 0) {
-        ok = false;
+    let depth = 0;
+    let balanced = true;
+    for (let i = 0;i < expr.length - 1; i++) {
+      if (expr[i] === "(")
+        depth++;
+      if (expr[i] === ")")
+        depth--;
+      if (depth === 0) {
+        balanced = false;
         break;
       }
     }
-    if (ok)
+    if (balanced)
       expr = expr.slice(1, -1).trim();
     else
       break;
   }
-  const lrParts = splitFirstLogical(expr);
-  if (lrParts) {
-    const l = evalCondition(lrParts[0], ctx);
-    return lrParts[1] === "and" ? l && evalCondition(lrParts[2], ctx) : l || evalCondition(lrParts[2], ctx);
+  const logical = splitFirstLogical(expr);
+  if (logical) {
+    const left = evalCondition(logical[0], ctx);
+    return logical[1] === "and" ? left && evalCondition(logical[2], ctx) : left || evalCondition(logical[2], ctx);
   }
-  const ops = ["==", "!=", "<>", "<=", ">=", "<", ">", " contains "];
-  for (const op of ops) {
-    let idx = -1, q = 0;
+  const operators = ["==", "!=", "<>", "<=", ">=", "<", ">", " contains "];
+  for (const op of operators) {
+    let opIdx = -1;
+    let quote = 0;
     for (let k = 0;k < expr.length; k++) {
-      const c = expr[k];
-      if ((c === "'" || c === '"') && !q)
-        q = c;
-      else if (c === q)
-        q = 0;
-      if (!q && expr.substr(k, op.length) === op) {
-        idx = k;
+      const ch = expr[k];
+      if ((ch === "'" || ch === '"') && !quote)
+        quote = ch;
+      else if (ch === quote)
+        quote = 0;
+      if (!quote && expr.substr(k, op.length) === op) {
+        opIdx = k;
         break;
       }
     }
-    if (idx >= 0) {
-      const lRaw = expr.slice(0, idx).trim(), rRaw = expr.slice(idx + op.length).trim();
-      const l = lRaw === "empty" ? EMPTY : lRaw === "blank" ? BLANK : evalExpr(lRaw, ctx);
-      const r = rRaw === "empty" ? EMPTY : rRaw === "blank" ? BLANK : evalExpr(rRaw, ctx);
+    if (opIdx >= 0) {
+      const leftRaw = expr.slice(0, opIdx).trim();
+      const rightRaw = expr.slice(opIdx + op.length).trim();
+      const left = leftRaw === "empty" ? EMPTY : leftRaw === "blank" ? BLANK : evalExpr(leftRaw, ctx);
+      const right = rightRaw === "empty" ? EMPTY : rightRaw === "blank" ? BLANK : evalExpr(rightRaw, ctx);
       switch (op.trim()) {
         case "==":
-          return liquidEq(l, r);
+          return liquidEq(left, right);
         case "!=":
         case "<>":
-          return !liquidEq(l, r);
+          return !liquidEq(left, right);
         case "<": {
-          const lv = l?.__f ? +l : l, rv = r?.__f ? +r : r;
+          const lv = left?.__f ? +left : left, rv = right?.__f ? +right : right;
           return lv != null && rv != null && typeof lv === typeof rv && lv < rv;
         }
         case ">": {
-          const lv = l?.__f ? +l : l, rv = r?.__f ? +r : r;
+          const lv = left?.__f ? +left : left, rv = right?.__f ? +right : right;
           return lv != null && rv != null && typeof lv === typeof rv && lv > rv;
         }
         case "<=": {
-          const lv = l?.__f ? +l : l, rv = r?.__f ? +r : r;
+          const lv = left?.__f ? +left : left, rv = right?.__f ? +right : right;
           return lv != null && rv != null && typeof lv === typeof rv && lv <= rv;
         }
         case ">=": {
-          const lv = l?.__f ? +l : l, rv = r?.__f ? +r : r;
+          const lv = left?.__f ? +left : left, rv = right?.__f ? +right : right;
           return lv != null && rv != null && typeof lv === typeof rv && lv >= rv;
         }
         case "contains":
-          if (r == null)
+          if (right == null)
             return false;
-          if (typeof l === "string")
-            return l.includes(str(r));
-          if (isArr(l))
-            return l.includes(r);
+          if (typeof left === "string")
+            return left.includes(str(right));
+          if (isArr(left))
+            return left.includes(right);
           return false;
       }
     }
@@ -888,39 +936,51 @@ var evalCondition = (expr, ctx) => {
 };
 
 // src/tokenizer.js
-var BB = { if: "endif,endunless", unless: "endif,endunless", for: "endfor,endtablerow", tablerow: "endfor,endtablerow", case: "endcase", capture: "endcapture", comment: "endcomment", doc: "enddoc" };
+var BLOCK_END_TAGS = {
+  if: "endif,endunless",
+  unless: "endif,endunless",
+  for: "endfor,endtablerow",
+  tablerow: "endfor,endtablerow",
+  case: "endcase",
+  capture: "endcapture",
+  comment: "endcomment",
+  doc: "enddoc"
+};
 var isBlockBlank = (tokens, start, end) => {
   for (let i = start;i < end; ) {
-    const tok = tokens[i];
-    if (tok[0] === "o")
+    const token = tokens[i];
+    if (token[0] === "o")
       return false;
-    if (tok[0] === "t") {
-      if (tok[1].trim())
+    if (token[0] === "t") {
+      if (token[1].trim())
         return false;
       i++;
       continue;
     }
-    const t = tok[1], tw = t.split(/\s/)[0];
-    if (/^(cycle|echo|increment|decrement)$/.test(tw) || t === "raw")
+    const tagContent = token[1];
+    const tagWord = tagContent.split(/\s/)[0];
+    if (/^(cycle|echo|increment|decrement)$/.test(tagWord) || tagContent === "raw")
       return false;
-    const ends = BB[tw];
-    if (ends) {
-      const endSet = ends.split(",");
-      let depth = 1, j = i + 1;
+    const endTags = BLOCK_END_TAGS[tagWord];
+    if (endTags) {
+      const endTagSet = endTags.split(",");
+      let depth = 1;
+      let j = i + 1;
       while (j < end) {
         if (tokens[j][0] === "g") {
-          const tt = tokens[j][1].split(/\s/)[0];
-          if (tt === tw)
+          const innerTagWord = tokens[j][1].split(/\s/)[0];
+          if (innerTagWord === tagWord)
             depth++;
-          else if (endSet.includes(tt)) {
+          else if (endTagSet.includes(innerTagWord)) {
             if (!--depth)
               break;
           }
         }
         j++;
       }
-      if (tw !== "comment" && tw !== "doc" && tw !== "capture" && !isBlockBlank(tokens, i + 1, j))
+      if (tagWord !== "comment" && tagWord !== "doc" && tagWord !== "capture" && !isBlockBlank(tokens, i + 1, j)) {
         return false;
+      }
       i = j + 1;
       continue;
     }
@@ -928,118 +988,147 @@ var isBlockBlank = (tokens, start, end) => {
   }
   return true;
 };
+var lstripLastToken = (tokens) => {
+  const lastToken = tokens.at(-1);
+  if (lastToken[0] === "t") {
+    lastToken[1] = lastToken[1].replace(/\s+$/, "");
+  }
+};
+var skipWhitespace = (src, pos) => {
+  while (pos < src.length && ` 	
+\r`.includes(src[pos]))
+    pos++;
+  return pos;
+};
 var tokenize = (src) => {
   const tokens = [];
-  let i = 0;
-  while (i < src.length) {
-    const oIdx = src.indexOf("{", i);
-    if (oIdx < 0) {
-      tokens.push(["t", src.slice(i)]);
+  let pos = 0;
+  while (pos < src.length) {
+    const openBrace = src.indexOf("{", pos);
+    if (openBrace < 0) {
+      tokens.push(["t", src.slice(pos)]);
       break;
     }
-    if (oIdx > i)
-      tokens.push(["t", src.slice(i, oIdx)]);
-    let wsCtrl = false;
-    if (src[oIdx + 1] === "{") {
-      const strip1 = src[oIdx + 2] === "-";
-      const cIdx = src.indexOf("}}", oIdx + 2);
-      if (cIdx < 0) {
+    if (openBrace > pos) {
+      tokens.push(["t", src.slice(openBrace > pos ? pos : pos, openBrace)]);
+    }
+    let trailingStripWs = false;
+    if (src[openBrace + 1] === "{") {
+      const leadingStrip = src[openBrace + 2] === "-";
+      const closeIdx = src.indexOf("}}", openBrace + 2);
+      if (closeIdx < 0) {
         tokens.push(["t", "{"]);
-        i = oIdx + 1;
+        pos = openBrace + 1;
         continue;
       }
-      const strip2 = src[cIdx - 1] === "-";
-      const inner = src.slice(oIdx + 2 + (strip1 ? 1 : 0), cIdx - (strip2 ? 1 : 0));
-      if (strip1 && tokens.length) {
-        const lt = tokens.at(-1);
-        if (lt[0] === "t")
-          lt[1] = lt[1].replace(/\s+$/, "");
-      }
-      tokens.push(["o", inner.trim(), strip2, strip1]);
-      i = cIdx + 2;
-    } else if (src[oIdx + 1] === "%") {
-      const strip1 = src[oIdx + 2] === "-";
-      const cIdx = src.indexOf("%}", oIdx + 2);
-      if (cIdx < 0) {
+      const trailingStrip = src[closeIdx - 1] === "-";
+      const innerStart = openBrace + 2 + (leadingStrip ? 1 : 0);
+      const innerEnd = closeIdx - (trailingStrip ? 1 : 0);
+      const inner = src.slice(innerStart, innerEnd);
+      if (leadingStrip && tokens.length)
+        lstripLastToken(tokens);
+      tokens.push(["o", inner.trim(), trailingStrip, leadingStrip]);
+      pos = closeIdx + 2;
+    } else if (src[openBrace + 1] === "%") {
+      const leadingStrip = src[openBrace + 2] === "-";
+      const closeIdx = src.indexOf("%}", openBrace + 2);
+      if (closeIdx < 0) {
         tokens.push(["t", "{"]);
-        i = oIdx + 1;
+        pos = openBrace + 1;
         continue;
       }
-      const strip2 = src[cIdx - 1] === "-";
-      const inner = src.slice(oIdx + 2 + (strip1 ? 1 : 0), cIdx - (strip2 ? 1 : 0));
-      if (strip1 && tokens.length) {
-        const lt = tokens.at(-1);
-        if (lt[0] === "t")
-          lt[1] = lt[1].replace(/\s+$/, "");
-      }
-      const tagName = inner.trim();
-      tokens.push(["g", tagName, strip2, strip1]);
-      i = cIdx + 2;
+      const trailingStrip = src[closeIdx - 1] === "-";
+      const innerStart = openBrace + 2 + (leadingStrip ? 1 : 0);
+      const innerEnd = closeIdx - (trailingStrip ? 1 : 0);
+      const tagName = src.slice(innerStart, innerEnd).trim();
+      if (leadingStrip && tokens.length)
+        lstripLastToken(tokens);
+      tokens.push(["g", tagName, trailingStrip, leadingStrip]);
+      pos = closeIdx + 2;
       if (tagName === "raw") {
-        const endPattern = /\{%-?\s*endraw\s*-?%\}/;
-        const rm = src.slice(i).match(endPattern);
-        if (rm) {
-          const rawContent = src.slice(i, i + rm.index);
+        const endrawPattern = /\{%-?\s*endraw\s*-?%\}/;
+        const match = src.slice(pos).match(endrawPattern);
+        if (match) {
+          const rawContent = src.slice(pos, pos + match.index);
           if (rawContent)
             tokens.push(["t", rawContent]);
-          const es1 = rm[0][2] === "-", es2 = rm[0][rm[0].length - 3] === "-";
-          tokens.push(["g", "endraw", es2]);
-          i += rm.index + rm[0].length;
-          if (es2) {
-            let ej = i;
-            while (ej < src.length && ` 	
-\r`.includes(src[ej]))
-              ej++;
-            if (ej > i)
-              i = ej;
+          const endrawTag = match[0];
+          const endrawTrailingStrip = endrawTag[endrawTag.length - 3] === "-";
+          tokens.push(["g", "endraw", endrawTrailingStrip]);
+          pos += match.index + endrawTag.length;
+          if (endrawTrailingStrip) {
+            pos = skipWhitespace(src, pos);
           }
         }
         continue;
       }
     } else {
       tokens.push(["t", "{"]);
-      i = oIdx + 1;
+      pos = openBrace + 1;
     }
     if (tokens.at(-1)?.[2])
-      wsCtrl = true;
-    if (wsCtrl && i < src.length) {
-      let j = i;
-      while (j < src.length && ` 	
-\r`.includes(src[j]))
-        j++;
-      if (j > i)
-        i = j;
+      trailingStripWs = true;
+    if (trailingStripWs && pos < src.length) {
+      pos = skipWhitespace(src, pos);
     }
   }
   return tokens;
 };
 
 // src/render.js
-var handleIf = async (tokens, ctx, i, len, engine) => {
-  const tag = tokens[i][1], cond = tag.slice(3).trim();
-  const sections = [{ cond, start: i + 1 }];
-  let depth = 1, j = i + 1, cd = 0;
+var findEndIf = (tokens, i, len) => {
+  let depth = 1;
+  let j = i + 1;
+  let commentDepth = 0;
   while (j < len) {
     if (tokens[j][0] === "g") {
-      const t = tokens[j][1];
-      if (t === "comment" || t === "doc" || t === "raw")
-        cd++;
-      else if (t === "endcomment" || t === "enddoc" || t === "endraw")
-        cd--;
-      else if (!cd) {
-        if (/^if\s/.test(t) || /^unless\s/.test(t))
+      const tagContent = tokens[j][1];
+      if (tagContent === "comment" || tagContent === "doc" || tagContent === "raw")
+        commentDepth++;
+      else if (tagContent === "endcomment" || tagContent === "enddoc" || tagContent === "endraw")
+        commentDepth--;
+      else if (!commentDepth) {
+        if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent))
           depth++;
-        else if (t === "endif" || t === "endunless") {
+        else if (tagContent === "endif" || tagContent === "endunless") {
+          depth--;
+          if (!depth)
+            break;
+        }
+      }
+    }
+    j++;
+  }
+  return j;
+};
+var handleIf = async (tokens, ctx, i, len, engine) => {
+  const tag = tokens[i][1];
+  const condition = tag.slice(3).trim();
+  const sections = [{ cond: condition, start: i + 1 }];
+  let depth = 1;
+  let j = i + 1;
+  let commentDepth = 0;
+  while (j < len) {
+    if (tokens[j][0] === "g") {
+      const tagContent = tokens[j][1];
+      if (tagContent === "comment" || tagContent === "doc" || tagContent === "raw")
+        commentDepth++;
+      else if (tagContent === "endcomment" || tagContent === "enddoc" || tagContent === "endraw")
+        commentDepth--;
+      else if (!commentDepth) {
+        if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent))
+          depth++;
+        else if (tagContent === "endif" || tagContent === "endunless") {
           depth--;
           if (!depth) {
             sections.at(-1).end = j;
             break;
           }
         } else if (depth === 1) {
-          if (/^elsif\s/.test(t)) {
+          if (/^elsif\s/.test(tagContent)) {
             sections.at(-1).end = j;
-            sections.push({ cond: t.slice(6).trim(), start: j + 1 });
-          } else if (t === "else") {
+            sections.push({ cond: tagContent.slice(6).trim(), start: j + 1 });
+          } else if (tagContent === "else") {
             sections.at(-1).end = j;
             sections.push({ cond: null, start: j + 1 });
           }
@@ -1050,364 +1139,129 @@ var handleIf = async (tokens, ctx, i, len, engine) => {
   }
   if (!sections.at(-1).end)
     sections.at(-1).end = j;
-  const blank = sections.every((s) => isBlockBlank(tokens, s.start, s.end));
+  const allBlank = sections.every((sec) => isBlockBlank(tokens, sec.start, sec.end));
   for (const sec of sections) {
     if (sec.cond === null || evalCondition(sec.cond, ctx)) {
-      const r = await render(tokens, ctx, sec.start, sec.end, engine);
-      return blank && typeof r === "string" && !r.trim() ? "" : r;
+      const result = await render(tokens, ctx, sec.start, sec.end, engine);
+      return allBlank && typeof result === "string" && !result.trim() ? "" : result;
     }
   }
   return "";
 };
-var render = async (tokens, ctx, start, end, engine) => {
-  let out = "", i = start ?? 0;
-  const len = end ?? tokens.length;
-  while (i < len) {
-    const tok = tokens[i];
-    if (tok[0] === "t") {
-      out += tok[1];
-      i++;
-    } else if (tok[0] === "o") {
-      out += stringify(await evalOutput(tok[1], ctx, engine));
-      i++;
-    } else if (tok[0] === "g") {
-      const tag = tok[1];
-      let m;
-      if (/^if\s/.test(tag)) {
-        let depth = 1, j = i + 1, cd = 0;
-        while (j < len) {
-          if (tokens[j][0] === "g") {
-            const t = tokens[j][1];
-            if (t === "comment" || t === "doc" || t === "raw")
-              cd++;
-            else if (t === "endcomment" || t === "enddoc" || t === "endraw")
-              cd--;
-            else if (!cd) {
-              if (/^if\s/.test(t) || /^unless\s/.test(t))
-                depth++;
-              else if (t === "endif" || t === "endunless") {
-                depth--;
-                if (!depth)
-                  break;
-              }
-            }
-          }
-          j++;
-        }
-        const r = await handleIf(tokens, ctx, i, len, engine);
-        if (r?.__ctrl) {
-          r.out = out + (r.out ?? "");
-          return r;
-        }
-        out += r;
-        i = j + 1;
-      } else if (/^unless\s/.test(tag)) {
-        const cond = tag.slice(7).trim();
-        const sections = [{ cond, negate: true, start: i + 1 }];
-        let depth = 1, j = i + 1, cd = 0;
-        while (j < len) {
-          if (tokens[j][0] === "g") {
-            const t = tokens[j][1];
-            if (t === "comment" || t === "doc" || t === "raw")
-              cd++;
-            else if (t === "endcomment" || t === "enddoc" || t === "endraw")
-              cd--;
-            else if (!cd) {
-              if (/^if\s/.test(t) || /^unless\s/.test(t))
-                depth++;
-              else if (t === "endif" || t === "endunless") {
-                depth--;
-                if (!depth) {
-                  sections.at(-1).end = j;
-                  break;
-                }
-              } else if (depth === 1) {
-                if (/^elsif\s/.test(t)) {
-                  sections.at(-1).end = j;
-                  sections.push({ cond: t.slice(6).trim(), start: j + 1 });
-                } else if (t === "else") {
-                  sections.at(-1).end = j;
-                  sections.push({ cond: null, start: j + 1 });
-                }
-              }
-            }
-          }
-          j++;
-        }
-        if (!sections.at(-1).end)
-          sections.at(-1).end = j;
-        const ub = sections.every((s) => isBlockBlank(tokens, s.start, s.end));
-        let r;
-        for (const sec of sections) {
-          const match = sec.cond === null || (sec.negate ? !evalCondition(sec.cond, ctx) : evalCondition(sec.cond, ctx));
-          if (match) {
-            r = await render(tokens, ctx, sec.start, sec.end, engine);
-            break;
-          }
-        }
-        if (r != null) {
-          if (r?.__ctrl) {
-            r.out = out + (r.out ?? "");
-            return r;
-          }
-          if (ub && typeof r === "string" && !r.trim())
-            r = "";
-          out += r;
-        }
-        i = j + 1;
-      } else if (/^case\s/.test(tag)) {
-        const r = await handleCase(tokens, ctx, i, len, engine);
-        if (r[0]?.__ctrl) {
-          r[0].out = out + (r[0].out ?? "");
-          return r[0];
-        }
-        out += r[0];
-        i = r[1];
-      } else if (/^for\s/.test(tag)) {
-        const r = await handleFor(tokens, ctx, i, len, engine);
-        out += r[0];
-        i = r[1];
-      } else if (/^tablerow\s/.test(tag)) {
-        const r = await handleTablerow(tokens, ctx, i, len, engine);
-        out += r[0];
-        i = r[1];
-      } else if (m = tag.match(/^assign\s+([\s\S]+)$/)) {
-        const parts = m[1].match(/^(\w[\w.-]*)\s*=\s*([\s\S]+)$/);
-        if (parts) {
-          ctx[parts[1]] = await evalOutput(parts[2], ctx, engine, 1);
-          ctx.__assigns ??= new Set;
-          ctx.__assigns.add(parts[1]);
-        }
-        i++;
-      } else if (m = tag.match(/^capture\s+['"]?(\w[\w.-]*)['"]?$/)) {
-        const name = m[1];
-        let depth = 1, j = i + 1;
-        while (j < len) {
-          if (tokens[j][0] === "g") {
-            if (tokens[j][1] === "endcapture") {
-              depth--;
-              if (!depth)
-                break;
-            } else if (/^capture\s/.test(tokens[j][1]))
-              depth++;
-          }
-          j++;
-        }
-        const r = await render(tokens, ctx, i + 1, j, engine);
-        ctx[name] = rout(r);
-        if (r?.__ctrl) {
-          r.out = out;
-          return r;
-        }
-        i = j + 1;
-      } else if (tag === "comment" || tag === "doc") {
-        const isComment = tag === "comment";
-        const endTag = isComment ? "endcomment" : "enddoc";
-        let depth = 1, j = i + 1;
-        while (j < len) {
-          if (tokens[j][0] === "g") {
-            const t = tokens[j][1];
-            if (t === endTag) {
-              depth--;
-              if (!depth)
-                break;
-            } else if (t === (isComment ? "comment" : "doc"))
-              depth++;
-          }
-          j++;
-        }
-        i = j + 1;
-      } else if (tag === "raw") {
-        let j = i + 1;
-        while (j < len) {
-          if (tokens[j][0] === "g" && tokens[j][1] === "endraw")
-            break;
-          j++;
-        }
-        for (let k = i + 1;k < j; k++) {
-          const tk = tokens[k];
-          if (tk[0] === "t")
-            out += tk[1];
-          else if (tk[0] === "o")
-            out += `{{${tk[3] ? "-" : ""} ${tk[1]} ${tk[2] ? "-" : ""}}}`;
-          else if (tk[0] === "g")
-            out += `{%${tk[3] ? "-" : ""} ${tk[1]} ${tk[2] ? "-" : ""}%}`;
-        }
-        i = j + 1;
-      } else if (m = tag.match(/^increment\s+(\w+)$/)) {
-        ctx.__counters ??= {};
-        ctx.__counters[m[1]] ??= 0;
-        out += ctx.__counters[m[1]]++;
-        i++;
-      } else if (m = tag.match(/^decrement\s+(\w+)$/)) {
-        ctx.__counters ??= {};
-        ctx.__counters[m[1]] ??= 0;
-        out += --ctx.__counters[m[1]];
-        i++;
-      } else if (m = tag.match(/^cycle\s*([\s\S]+)$/)) {
-        out += handleCycle(m[1], ctx, i);
-        i++;
-      } else if (m = tag.match(/^echo\s+([\s\S]+)$/)) {
-        out += stringify(await evalOutput(m[1], ctx, engine));
-        i++;
-      } else if (m = tag.match(/^liquid\s*([\s\S]*)$/)) {
-        out += await handleLiquid(m[1], ctx, engine);
-        i++;
-      } else if (tag === "ifchanged") {
-        let depth = 1, j = i + 1;
-        while (j < len) {
-          if (tokens[j][0] === "g") {
-            if (tokens[j][1] === "endifchanged") {
-              depth--;
-              if (!depth)
-                break;
-            } else if (tokens[j][1] === "ifchanged")
-              depth++;
-          }
-          j++;
-        }
-        const r = await render(tokens, ctx, i + 1, j, engine);
-        const val = rout(r);
-        if (val !== ctx.__lastIfchanged) {
-          out += val;
-          ctx.__lastIfchanged = val;
-        }
-        if (r?.__ctrl) {
-          r.out = out;
-          return r;
-        }
-        i = j + 1;
-      } else if (tag === "break" || tag === "continue") {
-        return { __ctrl: tag, out };
-      } else if (engine._tags) {
-        const tw = tag.split(/\s/)[0];
-        const handler = engine._tags[tw];
-        if (handler) {
-          const r = await handler(tag, tokens, ctx, i, len, engine);
-          if (r?.__ctrl) {
-            r.out = out + (r.out ?? "");
-            return r;
-          }
-          if (isArr(r)) {
-            out += r[0];
-            i = r[1];
-          } else {
-            out += r ?? "";
-            i++;
-          }
-        } else {
-          i++;
-        }
-      } else {
-        i++;
-      }
-    } else {
-      i++;
-    }
-  }
-  return out;
-};
 var handleCase = async (tokens, ctx, i, len, engine) => {
-  const val = evalExpr(tokens[i][1].slice(5).trim(), ctx);
-  let depth = 1, j = i + 1;
-  const sects = [];
+  const caseValue = evalExpr(tokens[i][1].slice(5).trim(), ctx);
+  let depth = 1;
+  let j = i + 1;
+  const sections = [];
   while (j < len) {
     if (tokens[j][0] === "g") {
-      const t = tokens[j][1];
-      if (/^case\s/.test(t))
+      const tagContent = tokens[j][1];
+      if (/^case\s/.test(tagContent))
         depth++;
-      else if (t === "endcase") {
+      else if (tagContent === "endcase") {
         depth--;
         if (!depth)
           break;
-      } else if (depth === 1 && /^when\s/.test(t)) {
-        if (sects.length)
-          sects.at(-1).end = j;
-        sects.push({ type: "w", vals: t.slice(5).split(/\s*,\s*|\s+or\s+/).map((v) => {
+      } else if (depth === 1 && /^when\s/.test(tagContent)) {
+        if (sections.length)
+          sections.at(-1).end = j;
+        const whenValues = tagContent.slice(5).split(/\s*,\s*|\s+or\s+/).map((v) => {
           v = v.trim();
           return v === "empty" ? EMPTY : v === "blank" ? BLANK : evalExpr(v, ctx);
-        }), start: j + 1 });
-      } else if (depth === 1 && /^else/.test(t)) {
-        if (sects.length)
-          sects.at(-1).end = j;
-        sects.push({ type: "e", start: j + 1 });
+        });
+        sections.push({ type: "w", vals: whenValues, start: j + 1 });
+      } else if (depth === 1 && /^else/.test(tagContent)) {
+        if (sections.length)
+          sections.at(-1).end = j;
+        sections.push({ type: "e", start: j + 1 });
       }
     }
     j++;
   }
-  if (sects.length && !sects.at(-1).end)
-    sects.at(-1).end = j;
-  const cb = isBlockBlank(tokens, i + 1, j);
-  let matched = false, out2 = "", lastElse = -1;
-  for (let k = sects.length - 1;k >= 0; k--)
-    if (sects[k].type === "e") {
-      lastElse = k;
+  if (sections.length && !sections.at(-1).end)
+    sections.at(-1).end = j;
+  const caseBlank = isBlockBlank(tokens, i + 1, j);
+  let matched = false;
+  let output = "";
+  let lastElseIdx = -1;
+  for (let k = sections.length - 1;k >= 0; k--) {
+    if (sections[k].type === "e") {
+      lastElseIdx = k;
       break;
     }
-  const rs = async (s) => {
-    const r = await render(tokens, ctx, s.start, s.end, engine);
-    if (r?.__ctrl)
-      return r;
-    out2 += rout(r);
+  }
+  const renderSection = async (sec) => {
+    const result = await render(tokens, ctx, sec.start, sec.end, engine);
+    if (result?.__ctrl)
+      return result;
+    output += rout(result);
   };
-  for (let k = 0;k < sects.length; k++) {
-    const s = sects[k], hit = s.type === "w" ? s.vals.some((wv) => liquidEq(wv, val)) : k !== lastElse;
-    if (hit) {
-      if (s.type === "w")
+  for (let k = 0;k < sections.length; k++) {
+    const sec = sections[k];
+    const isMatch = sec.type === "w" ? sec.vals.some((whenVal) => liquidEq(whenVal, caseValue)) : k !== lastElseIdx;
+    if (isMatch) {
+      if (sec.type === "w")
         matched = true;
-      const c = await rs(s);
-      if (c)
-        return [c, j + 1];
+      const ctrl = await renderSection(sec);
+      if (ctrl)
+        return [ctrl, j + 1];
     }
   }
-  if (!matched && lastElse >= 0) {
-    const c = await rs(sects[lastElse]);
-    if (c)
-      return [c, j + 1];
+  if (!matched && lastElseIdx >= 0) {
+    const ctrl = await renderSection(sections[lastElseIdx]);
+    if (ctrl)
+      return [ctrl, j + 1];
   }
-  return [cb && !out2.trim() ? "" : out2, j + 1];
+  return [caseBlank && !output.trim() ? "" : output, j + 1];
 };
 var handleFor = async (tokens, ctx, i, len, engine) => {
-  const m = tokens[i][1].match(/^for\s+(\w+)\s+in\s+([\s\S]+)$/);
-  if (!m)
+  const match = tokens[i][1].match(/^for\s+(\w+)\s+in\s+([\s\S]+)$/);
+  if (!match)
     return ["", i + 1];
-  const varName = m[1], expr = m[2].trim();
-  let depth = 1, idepth = 0, j = i + 1, elseIdx = -1;
+  const varName = match[1];
+  const rawExpr = match[2].trim();
+  let depth = 1;
+  let innerIfDepth = 0;
+  let j = i + 1;
+  let elseIdx = -1;
   while (j < len) {
     if (tokens[j][0] === "g") {
-      const t = tokens[j][1];
-      if (/^for\s/.test(t) || /^tablerow\s/.test(t))
+      const tagContent = tokens[j][1];
+      if (/^for\s/.test(tagContent) || /^tablerow\s/.test(tagContent))
         depth++;
-      else if (t === "endfor" || t === "endtablerow") {
+      else if (tagContent === "endfor" || tagContent === "endtablerow") {
         depth--;
         if (!depth)
           break;
-      } else if (/^if\s/.test(t) || /^unless\s/.test(t) || /^case\s/.test(t))
-        idepth++;
-      else if (t === "endif" || t === "endunless" || t === "endcase")
-        idepth--;
-      else if (depth === 1 && idepth === 0 && t === "else")
+      } else if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent) || /^case\s/.test(tagContent))
+        innerIfDepth++;
+      else if (tagContent === "endif" || tagContent === "endunless" || tagContent === "endcase")
+        innerIfDepth--;
+      else if (depth === 1 && innerIfDepth === 0 && tagContent === "else")
         elseIdx = j;
     }
     j++;
   }
   let collection;
-  let limit, offset = 0, reversed = false, offsetContinue = false;
-  let srcExpr = expr.replace(/,/g, " ");
-  const lm = srcExpr.match(/\blimit:\s*(\S+)/);
-  if (lm) {
-    limit = num(evalExpr(lm[1], ctx));
-    srcExpr = srcExpr.replace(lm[0], "");
+  let limit;
+  let offset = 0;
+  let reversed = false;
+  let offsetContinue = false;
+  let srcExpr = rawExpr.replace(/,/g, " ");
+  const limitMatch = srcExpr.match(/\blimit:\s*(\S+)/);
+  if (limitMatch) {
+    limit = num(evalExpr(limitMatch[1], ctx));
+    srcExpr = srcExpr.replace(limitMatch[0], "");
   }
   if (/\boffset:\s*continue\b/.test(srcExpr)) {
     offsetContinue = true;
     srcExpr = srcExpr.replace(/\boffset:\s*continue\b/, "");
   }
-  const om = srcExpr.match(/\boffset:\s*(\S+)/);
-  if (om) {
-    offset = +evalExpr(om[1], ctx);
+  const offsetMatch = srcExpr.match(/\boffset:\s*(\S+)/);
+  if (offsetMatch) {
+    offset = +evalExpr(offsetMatch[1], ctx);
     offsetContinue = false;
-    srcExpr = srcExpr.replace(om[0], "");
+    srcExpr = srcExpr.replace(offsetMatch[0], "");
   }
   if (/\breversed\b/.test(srcExpr)) {
     reversed = true;
@@ -1415,10 +1269,10 @@ var handleFor = async (tokens, ctx, i, len, engine) => {
   }
   srcExpr = srcExpr.trim();
   collection = evalExpr(srcExpr, ctx);
-  const isStr = typeof collection === "string";
+  const isString = typeof collection === "string";
   if (isArr(collection)) {
     collection = collection.slice();
-  } else if (isStr) {
+  } else if (isString) {
     collection = collection ? [collection] : [];
   } else if (collection && typeof collection === "object")
     collection = Object.entries(collection);
@@ -1427,14 +1281,14 @@ var handleFor = async (tokens, ctx, i, len, engine) => {
       return [await render(tokens, ctx, elseIdx + 1, j, engine), j + 1];
     return ["", j + 1];
   }
-  if (!isStr) {
+  if (!isString) {
     if (offsetContinue) {
       ctx.__foroffsets ??= {};
       offset = ctx.__foroffsets[varName + ":" + srcExpr] ?? 0;
     }
-    if (limit != null && limit < 0)
+    if (limit != null && limit < 0) {
       collection = [];
-    else {
+    } else {
       if (offset < 0) {
         if (limit != null) {
           limit = M.max(0, limit + offset);
@@ -1453,56 +1307,59 @@ var handleFor = async (tokens, ctx, i, len, engine) => {
   }
   if (!collection.length) {
     if (elseIdx >= 0) {
-      const r = await render(tokens, ctx, elseIdx + 1, j, engine);
-      return [rout(r), j + 1];
+      const result = await render(tokens, ctx, elseIdx + 1, j, engine);
+      return [rout(result), j + 1];
     }
     return ["", j + 1];
   }
   const bodyEnd = elseIdx >= 0 ? elseIdx : j;
-  let out = "";
+  let output = "";
   const prevForloop = ctx.forloop;
   const prevVar = varName in ctx ? ctx[varName] : undefined;
   const hadVar = varName in ctx;
   const blank = isBlockBlank(tokens, i + 1, bodyEnd);
-  const fl = { name: varName + "-" + srcExpr, length: collection.length, parentloop: prevForloop };
+  const forloop = { name: varName + "-" + srcExpr, length: collection.length, parentloop: prevForloop };
   for (let k = 0;k < collection.length; k++) {
     ctx[varName] = collection[k];
-    fl.first = k === 0;
-    fl.last = k === collection.length - 1;
-    fl.index = k + 1;
-    fl.index0 = k;
-    fl.rindex = collection.length - k;
-    fl.rindex0 = collection.length - k - 1;
-    ctx.forloop = fl;
-    const r = await render(tokens, ctx, i + 1, bodyEnd, engine);
-    if (typeof r === "object") {
-      out += r.out ?? "";
-      if (r.__ctrl === "break")
+    forloop.first = k === 0;
+    forloop.last = k === collection.length - 1;
+    forloop.index = k + 1;
+    forloop.index0 = k;
+    forloop.rindex = collection.length - k;
+    forloop.rindex0 = collection.length - k - 1;
+    ctx.forloop = forloop;
+    const result = await render(tokens, ctx, i + 1, bodyEnd, engine);
+    if (typeof result === "object") {
+      output += result.out ?? "";
+      if (result.__ctrl === "break")
         break;
-      if (r.__ctrl === "continue")
+      if (result.__ctrl === "continue")
         continue;
-    } else
-      out += r;
+    } else {
+      output += result;
+    }
   }
-  fl.index = collection.length + 1;
-  fl.index0 = collection.length;
-  fl.rindex = 0;
-  fl.rindex0 = -1;
-  fl.first = false;
-  fl.last = false;
+  forloop.index = collection.length + 1;
+  forloop.index0 = collection.length;
+  forloop.rindex = 0;
+  forloop.rindex0 = -1;
+  forloop.first = false;
+  forloop.last = false;
   ctx.forloop = prevForloop;
   if (hadVar)
     ctx[varName] = prevVar;
   else
     delete ctx[varName];
-  return [blank && !out.trim() ? "" : out, j + 1];
+  return [blank && !output.trim() ? "" : output, j + 1];
 };
 var handleTablerow = async (tokens, ctx, i, len, engine) => {
-  const m = tokens[i][1].match(/^tablerow\s+(\w+)\s+in\s+([\s\S]+)$/);
-  if (!m)
+  const match = tokens[i][1].match(/^tablerow\s+(\w+)\s+in\s+([\s\S]+)$/);
+  if (!match)
     return ["", i + 1];
-  const varName = m[1], expr = m[2].trim();
-  let depth = 1, j = i + 1;
+  const varName = match[1];
+  const rawExpr = match[2].trim();
+  let depth = 1;
+  let j = i + 1;
   while (j < len) {
     if (tokens[j][0] === "g") {
       if (/^for\s/.test(tokens[j][1]) || /^tablerow\s/.test(tokens[j][1]))
@@ -1515,55 +1372,58 @@ var handleTablerow = async (tokens, ctx, i, len, engine) => {
     }
     j++;
   }
-  let collection, limit, offset = 0;
-  let srcExpr = expr.replace(/,/g, " ");
-  const lm = srcExpr.match(/\blimit:\s*(\S+)/);
-  if (lm) {
-    limit = num(evalExpr(lm[1], ctx));
-    srcExpr = srcExpr.replace(lm[0], "");
+  let collection;
+  let limit;
+  let offset = 0;
+  let srcExpr = rawExpr.replace(/,/g, " ");
+  const limitMatch = srcExpr.match(/\blimit:\s*(\S+)/);
+  if (limitMatch) {
+    limit = num(evalExpr(limitMatch[1], ctx));
+    srcExpr = srcExpr.replace(limitMatch[0], "");
   }
-  const om = srcExpr.match(/\boffset:\s*(\S+)/);
-  if (om) {
-    offset = +evalExpr(om[1], ctx);
-    srcExpr = srcExpr.replace(om[0], "");
+  const offsetMatch = srcExpr.match(/\boffset:\s*(\S+)/);
+  if (offsetMatch) {
+    offset = +evalExpr(offsetMatch[1], ctx);
+    srcExpr = srcExpr.replace(offsetMatch[0], "");
   }
-  const cm = srcExpr.match(/\bcols:\s*(\S+)/);
-  const cols = cm ? +evalExpr(cm[1], ctx) || 0 : -1;
-  if (cm)
-    srcExpr = srcExpr.replace(cm[0], "");
+  const colsMatch = srcExpr.match(/\bcols:\s*(\S+)/);
+  const cols = colsMatch ? +evalExpr(colsMatch[1], ctx) || 0 : -1;
+  if (colsMatch)
+    srcExpr = srcExpr.replace(colsMatch[0], "");
   srcExpr = srcExpr.replace(/\b\w+:\s*\S+/g, "").trim();
-  const rawSrc = evalExpr(srcExpr, ctx);
-  const isStr = typeof rawSrc === "string";
-  if (rawSrc == null || rawSrc === false)
+  const rawCollection = evalExpr(srcExpr, ctx);
+  const isString = typeof rawCollection === "string";
+  if (rawCollection == null || rawCollection === false)
     return ["", j + 1];
-  if (isArr(rawSrc))
-    collection = rawSrc.slice();
-  else if (isStr)
-    collection = rawSrc ? [rawSrc] : [];
+  if (isArr(rawCollection))
+    collection = rawCollection.slice();
+  else if (isString)
+    collection = rawCollection ? [rawCollection] : [];
   else
-    collection = typeof rawSrc === "object" ? Object.values(rawSrc) : [];
-  if (!isStr) {
-    if (limit != null && limit < 0)
+    collection = typeof rawCollection === "object" ? Object.values(rawCollection) : [];
+  if (!isString) {
+    if (limit != null && limit < 0) {
       collection = [];
-    else {
+    } else {
       if (offset < 0) {
         offset = offset + collection.length;
         if (offset < 0)
           collection = [];
         else
           collection = collection.slice(offset);
-      } else if (offset)
+      } else if (offset) {
         collection = collection.slice(offset);
+      }
       if (limit != null && !isNaN(limit))
         collection = collection.slice(0, M.max(0, limit));
     }
   }
-  let out = "";
-  const prev = ctx.tablerowloop;
+  let output = "";
+  const prevTablerowloop = ctx.tablerowloop;
   const prevVar = varName in ctx ? ctx[varName] : undefined;
   const hadVar = varName in ctx;
   if (!collection.length) {
-    ctx.tablerowloop = prev;
+    ctx.tablerowloop = prevTablerowloop;
     return [`<tr class="row1">
 </tr>
 `, j + 1];
@@ -1572,91 +1432,338 @@ var handleTablerow = async (tokens, ctx, i, len, engine) => {
     ctx[varName] = collection[k];
     const col = cols > 0 ? k % cols : k;
     const row = cols > 0 ? M.floor(k / cols) + 1 : 1;
-    ctx.tablerowloop = { first: k === 0, last: k === collection.length - 1, index: k + 1, index0: k, length: collection.length, rindex: collection.length - k, rindex0: collection.length - k - 1, col: col + 1, col0: col, row, col_first: col === 0, col_last: cols > 0 ? col === cols - 1 : cols < 0 && k === collection.length - 1 };
+    ctx.tablerowloop = {
+      first: k === 0,
+      last: k === collection.length - 1,
+      index: k + 1,
+      index0: k,
+      length: collection.length,
+      rindex: collection.length - k,
+      rindex0: collection.length - k - 1,
+      col: col + 1,
+      col0: col,
+      row,
+      col_first: col === 0,
+      col_last: cols > 0 ? col === cols - 1 : cols < 0 && k === collection.length - 1
+    };
     if (col === 0)
-      out += `<tr class="row${row}">` + (k === 0 ? `
+      output += `<tr class="row${row}">` + (k === 0 ? `
 ` : "");
-    const r = await render(tokens, ctx, i + 1, j, engine);
-    const cellVal = rout(r);
-    out += `<td class="col${col + 1}">${cellVal}</td>`;
-    if (r?.__ctrl === "break") {
-      out += `</tr>
+    const result = await render(tokens, ctx, i + 1, j, engine);
+    const cellValue = rout(result);
+    output += `<td class="col${col + 1}">${cellValue}</td>`;
+    if (result?.__ctrl === "break") {
+      output += `</tr>
 `;
       break;
     }
-    if (r?.__ctrl === "continue") {
+    if (result?.__ctrl === "continue") {
       if (cols > 0 && col === cols - 1 || k === collection.length - 1)
-        out += `</tr>
+        output += `</tr>
 `;
       continue;
     }
     if (cols > 0 && col === cols - 1 || k === collection.length - 1)
-      out += `</tr>
+      output += `</tr>
 `;
   }
-  ctx.tablerowloop = prev;
+  ctx.tablerowloop = prevTablerowloop;
   if (hadVar)
     ctx[varName] = prevVar;
   else
     delete ctx[varName];
-  return [out, j + 1];
+  return [output, j + 1];
 };
-var handleCycle = (args, ctx, pos) => {
+var handleCycle = (args, ctx, tokenPos) => {
   ctx.__cycles ??= {};
-  let parts, group, colonIdx = -1, cq = 0;
-  for (let ci = 0;ci < args.length; ci++) {
-    const cc = args[ci];
-    if ((cc === '"' || cc === "'") && !cq)
-      cq = cc;
-    else if (cc === cq)
-      cq = 0;
-    if (!cq && cc === ":") {
-      colonIdx = ci;
+  let valuesStr;
+  let group;
+  let colonIdx = -1;
+  let quote = 0;
+  for (let i = 0;i < args.length; i++) {
+    const ch = args[i];
+    if ((ch === '"' || ch === "'") && !quote)
+      quote = ch;
+    else if (ch === quote)
+      quote = 0;
+    if (!quote && ch === ":") {
+      colonIdx = i;
       break;
     }
   }
   if (colonIdx >= 0) {
-    const gn = args.slice(0, colonIdx).trim();
-    if (/^[\w.[\]'"]+$/.test(gn)) {
-      group = evalExpr(gn, ctx) || gn;
-      parts = args.slice(colonIdx + 1);
+    const groupName = args.slice(0, colonIdx).trim();
+    if (/^[\w.[\]'"]+$/.test(groupName)) {
+      group = evalExpr(groupName, ctx) || groupName;
+      valuesStr = args.slice(colonIdx + 1);
     } else {
-      parts = args;
+      valuesStr = args;
       group = args;
     }
   } else {
-    parts = args;
+    valuesStr = args;
     group = args;
   }
   if (!colonIdx || colonIdx < 0) {
-    let hasVar = 0, vq = 0;
-    for (const vc of parts) {
-      if ((vc === '"' || vc === "'") && !vq)
-        vq = vc;
-      else if (vc === vq)
+    let hasVariable = 0;
+    let vq = 0;
+    for (const ch of valuesStr) {
+      if ((ch === '"' || ch === "'") && !vq)
+        vq = ch;
+      else if (ch === vq)
         vq = 0;
-      else if (!vq && /[a-zA-Z_]/.test(vc)) {
-        hasVar = 1;
+      else if (!vq && /[a-zA-Z_]/.test(ch)) {
+        hasVariable = 1;
         break;
       }
     }
-    if (hasVar)
-      group = "\x00" + pos;
+    if (hasVariable)
+      group = "\x00" + tokenPos;
   }
-  let vals = parts.split(",").map((v) => evalExpr(v.trim(), ctx));
-  while (vals.length > 1 && vals.at(-1) == null)
-    vals.pop();
+  let values = valuesStr.split(",").map((v) => evalExpr(v.trim(), ctx));
+  while (values.length > 1 && values.at(-1) == null)
+    values.pop();
   ctx.__cycles[group] ??= 0;
-  const idx = ctx.__cycles[group] % vals.length;
+  const idx = ctx.__cycles[group] % values.length;
   ctx.__cycles[group]++;
-  return vals[idx] ?? "";
+  return values[idx] ?? "";
 };
 var handleLiquid = async (body, ctx, engine) => {
-  const src = body.split(`
-`).map((l) => l.trim()).filter(Boolean).map((l) => `{% ${l} %}`).join("");
-  const toks = tokenize(src);
-  const r = await render(toks, ctx, 0, toks.length, engine);
-  return rout(r);
+  const wrappedSrc = body.split(`
+`).map((line) => line.trim()).filter(Boolean).map((line) => `{% ${line} %}`).join("");
+  const liquidTokens = tokenize(wrappedSrc);
+  const result = await render(liquidTokens, ctx, 0, liquidTokens.length, engine);
+  return rout(result);
+};
+var render = async (tokens, ctx, start, end, engine) => {
+  let output = "";
+  let i = start ?? 0;
+  const len = end ?? tokens.length;
+  while (i < len) {
+    const token = tokens[i];
+    if (token[0] === "t") {
+      output += token[1];
+      i++;
+    } else if (token[0] === "o") {
+      output += stringify(await evalOutput(token[1], ctx, engine));
+      i++;
+    } else if (token[0] === "g") {
+      const tag = token[1];
+      let m;
+      if (/^if\s/.test(tag)) {
+        const endIdx = findEndIf(tokens, i, len);
+        const result = await handleIf(tokens, ctx, i, len, engine);
+        if (result?.__ctrl) {
+          result.out = output + (result.out ?? "");
+          return result;
+        }
+        output += result;
+        i = endIdx + 1;
+      } else if (/^unless\s/.test(tag)) {
+        const condition = tag.slice(7).trim();
+        const sections = [{ cond: condition, negate: true, start: i + 1 }];
+        let depth = 1, j = i + 1, commentDepth = 0;
+        while (j < len) {
+          if (tokens[j][0] === "g") {
+            const tagContent = tokens[j][1];
+            if (tagContent === "comment" || tagContent === "doc" || tagContent === "raw")
+              commentDepth++;
+            else if (tagContent === "endcomment" || tagContent === "enddoc" || tagContent === "endraw")
+              commentDepth--;
+            else if (!commentDepth) {
+              if (/^if\s/.test(tagContent) || /^unless\s/.test(tagContent))
+                depth++;
+              else if (tagContent === "endif" || tagContent === "endunless") {
+                depth--;
+                if (!depth) {
+                  sections.at(-1).end = j;
+                  break;
+                }
+              } else if (depth === 1) {
+                if (/^elsif\s/.test(tagContent)) {
+                  sections.at(-1).end = j;
+                  sections.push({ cond: tagContent.slice(6).trim(), start: j + 1 });
+                } else if (tagContent === "else") {
+                  sections.at(-1).end = j;
+                  sections.push({ cond: null, start: j + 1 });
+                }
+              }
+            }
+          }
+          j++;
+        }
+        if (!sections.at(-1).end)
+          sections.at(-1).end = j;
+        const allBlank = sections.every((sec) => isBlockBlank(tokens, sec.start, sec.end));
+        let result;
+        for (const sec of sections) {
+          const matches = sec.cond === null || (sec.negate ? !evalCondition(sec.cond, ctx) : evalCondition(sec.cond, ctx));
+          if (matches) {
+            result = await render(tokens, ctx, sec.start, sec.end, engine);
+            break;
+          }
+        }
+        if (result != null) {
+          if (result?.__ctrl) {
+            result.out = output + (result.out ?? "");
+            return result;
+          }
+          if (allBlank && typeof result === "string" && !result.trim())
+            result = "";
+          output += result;
+        }
+        i = j + 1;
+      } else if (/^case\s/.test(tag)) {
+        const result = await handleCase(tokens, ctx, i, len, engine);
+        if (result[0]?.__ctrl) {
+          result[0].out = output + (result[0].out ?? "");
+          return result[0];
+        }
+        output += result[0];
+        i = result[1];
+      } else if (/^for\s/.test(tag)) {
+        const result = await handleFor(tokens, ctx, i, len, engine);
+        output += result[0];
+        i = result[1];
+      } else if (/^tablerow\s/.test(tag)) {
+        const result = await handleTablerow(tokens, ctx, i, len, engine);
+        output += result[0];
+        i = result[1];
+      } else if (m = tag.match(/^assign\s+([\s\S]+)$/)) {
+        const parts = m[1].match(/^(\w[\w.-]*)\s*=\s*([\s\S]+)$/);
+        if (parts) {
+          ctx[parts[1]] = await evalOutput(parts[2], ctx, engine, 1);
+          ctx.__assigns ??= new Set;
+          ctx.__assigns.add(parts[1]);
+        }
+        i++;
+      } else if (m = tag.match(/^capture\s+['"]?(\w[\w.-]*)['"]?$/)) {
+        const captureName = m[1];
+        let depth = 1, j = i + 1;
+        while (j < len) {
+          if (tokens[j][0] === "g") {
+            if (tokens[j][1] === "endcapture") {
+              depth--;
+              if (!depth)
+                break;
+            } else if (/^capture\s/.test(tokens[j][1]))
+              depth++;
+          }
+          j++;
+        }
+        const result = await render(tokens, ctx, i + 1, j, engine);
+        ctx[captureName] = rout(result);
+        if (result?.__ctrl) {
+          result.out = output;
+          return result;
+        }
+        i = j + 1;
+      } else if (tag === "comment" || tag === "doc") {
+        const isComment = tag === "comment";
+        const endTag = isComment ? "endcomment" : "enddoc";
+        let depth = 1, j = i + 1;
+        while (j < len) {
+          if (tokens[j][0] === "g") {
+            const tagContent = tokens[j][1];
+            if (tagContent === endTag) {
+              depth--;
+              if (!depth)
+                break;
+            } else if (tagContent === (isComment ? "comment" : "doc"))
+              depth++;
+          }
+          j++;
+        }
+        i = j + 1;
+      } else if (tag === "raw") {
+        let j = i + 1;
+        while (j < len) {
+          if (tokens[j][0] === "g" && tokens[j][1] === "endraw")
+            break;
+          j++;
+        }
+        for (let k = i + 1;k < j; k++) {
+          const rawToken = tokens[k];
+          if (rawToken[0] === "t")
+            output += rawToken[1];
+          else if (rawToken[0] === "o")
+            output += `{{${rawToken[3] ? "-" : ""} ${rawToken[1]} ${rawToken[2] ? "-" : ""}}}`;
+          else if (rawToken[0] === "g")
+            output += `{%${rawToken[3] ? "-" : ""} ${rawToken[1]} ${rawToken[2] ? "-" : ""}%}`;
+        }
+        i = j + 1;
+      } else if (m = tag.match(/^increment\s+(\w+)$/)) {
+        ctx.__counters ??= {};
+        ctx.__counters[m[1]] ??= 0;
+        output += ctx.__counters[m[1]]++;
+        i++;
+      } else if (m = tag.match(/^decrement\s+(\w+)$/)) {
+        ctx.__counters ??= {};
+        ctx.__counters[m[1]] ??= 0;
+        output += --ctx.__counters[m[1]];
+        i++;
+      } else if (m = tag.match(/^cycle\s*([\s\S]+)$/)) {
+        output += handleCycle(m[1], ctx, i);
+        i++;
+      } else if (m = tag.match(/^echo\s+([\s\S]+)$/)) {
+        output += stringify(await evalOutput(m[1], ctx, engine));
+        i++;
+      } else if (m = tag.match(/^liquid\s*([\s\S]*)$/)) {
+        output += await handleLiquid(m[1], ctx, engine);
+        i++;
+      } else if (tag === "ifchanged") {
+        let depth = 1, j = i + 1;
+        while (j < len) {
+          if (tokens[j][0] === "g") {
+            if (tokens[j][1] === "endifchanged") {
+              depth--;
+              if (!depth)
+                break;
+            } else if (tokens[j][1] === "ifchanged")
+              depth++;
+          }
+          j++;
+        }
+        const result = await render(tokens, ctx, i + 1, j, engine);
+        const renderedValue = rout(result);
+        if (renderedValue !== ctx.__lastIfchanged) {
+          output += renderedValue;
+          ctx.__lastIfchanged = renderedValue;
+        }
+        if (result?.__ctrl) {
+          result.out = output;
+          return result;
+        }
+        i = j + 1;
+      } else if (tag === "break" || tag === "continue") {
+        return { __ctrl: tag, out: output };
+      } else if (engine._tags) {
+        const tagWord = tag.split(/\s/)[0];
+        const handler = engine._tags[tagWord];
+        if (handler) {
+          const result = await handler(tag, tokens, ctx, i, len, engine);
+          if (result?.__ctrl) {
+            result.out = output + (result.out ?? "");
+            return result;
+          }
+          if (isArr(result)) {
+            output += result[0];
+            i = result[1];
+          } else {
+            output += result ?? "";
+            i++;
+          }
+        } else {
+          i++;
+        }
+      } else {
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+  return output;
 };
 
 // src/index.js
