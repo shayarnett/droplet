@@ -22,6 +22,22 @@ const html = await engine.parseAndRender("Hello {{ name }}!", { name: "World" })
 // => "Hello World!"
 ```
 
+## Migrating from LiquidJS
+
+Swap your import for the compatibility shim and everything keeps working:
+
+```js
+// Before (LiquidJS):
+// const { Liquid } = require("liquidjs");
+
+// After (Droplet):
+const { Liquid } = require("./ext/liquid-compat");
+```
+
+All the APIs you're used to work the same — `parse()`, `render()`, `parseAndRender()`, `renderFile()`, `parseFile()`, `registerFilter()`, `registerTag()`, `plugin()`, `express()`, `setTemplate()`. Sync methods (`parseAndRenderSync`, `renderSync`, etc.) throw with migration hints pointing you to the async equivalent.
+
+Once migrated, you can gradually move to the native Droplet API for a smaller footprint.
+
 ## API
 
 ### `new Droplet(options?)`
@@ -102,23 +118,6 @@ const inlineErrors = require("./ext/inline-errors");
 inlineErrors(engine);
 ```
 
-### LiquidJS Compatibility Shim (`ext/liquid-compat.js`)
-
-Drop-in replacement for [LiquidJS](https://liquidjs.com/). Swap your import and migrate at your own pace.
-
-```js
-// Before (LiquidJS):
-// const { Liquid } = require("liquidjs");
-
-// After (Droplet):
-const { Liquid } = require("./ext/liquid-compat");
-
-const engine = new Liquid({ globals: { site: "My Site" } });
-await engine.parseAndRender("{{ site }}");
-```
-
-Supported LiquidJS APIs: `parse()`, `render()`, `parseAndRender()`, `renderFile()`, `parseFile()`, `registerFilter()`, `registerTag()`, `plugin()`, `express()`, `setTemplate()`. Sync methods (`parseAndRenderSync`, `renderSync`, etc.) throw with migration hints.
-
 ## Build
 
 ```bash
@@ -131,7 +130,7 @@ Requires [terser](https://terser.org/) for minification and [bun](https://bun.sh
 
 ## Spec Compliance
 
-Droplet is tested against the [liquid-spec](https://github.com/nicktomlin/liquid-spec) test suite — 5,000+ tests covering Liquid Ruby, Shopify production recordings, and lax parsing.
+Droplet is tested against the [liquid-spec](https://github.com/Shopify/liquid-spec) test suite — 5,000+ tests covering Liquid Ruby, Shopify production recordings, and lax parsing.
 
 ```
 bun spec-runner.js
