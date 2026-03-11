@@ -1,4 +1,4 @@
-name: Publish to GitHub Packages
+name: Publish
 
 on:
   push:
@@ -8,7 +8,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +29,17 @@ jobs:
             echo "::error::droplet.min.js is ${size} bytes, exceeds 30KB"
             exit 1
           fi
+
+      - name: Create GitHub Release
+        run: |
+          size=$(wc -c < droplet.min.js | tr -d ' ')
+          gzip=$(bun -e "const z=require('zlib'),f=require('fs');process.stdout.write(''+z.gzipSync(f.readFileSync('droplet.min.js')).length)")
+          gh release create ${{ github.ref_name }} \
+            droplet.js droplet.min.js \
+            --title "${{ github.ref_name }}" \
+            --notes "droplet.min.js: ${size} bytes (${gzip} gzip)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
