@@ -542,13 +542,13 @@ var BUILTIN_FILTERS = {
   base64_decode: (value) => {
     const s = str(value);
     try {
-      return decodeURIComponent(escape(atob(s)));
+      const raw = atob(s);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0;i < raw.length; i++)
+        bytes[i] = raw.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
     } catch (e) {
-      try {
-        return atob(s);
-      } catch (e2) {
-        return s;
-      }
+      return s;
     }
   },
   base64_url_safe_encode: (value) => BUILTIN_FILTERS.base64_encode(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
