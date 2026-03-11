@@ -143,13 +143,14 @@ bun spec-runner.js
 
 Current results:
 
-| Suite | Pass Rate |
-|-------|-----------|
-| Basics | 707/713 (99%) |
-| Liquid Ruby | 1368/1694 (81%) |
-| Shopify Production Recordings | 2192/2610 (84%) |
-| Liquid Ruby (Lax Mode) | 96/102 (94%) |
-| **Total** | **4363/5119 (85%)** |
+```
+Basics ......................... 707/713 passed
+Liquid Ruby .................... 1368/1694 passed
+Shopify Production Recordings .. 2192/2610 passed
+Liquid Ruby (Lax Mode) ......... 96/102 passed
+
+Total: 4363 passed (85.2%)
+```
 
 Most remaining failures require Ruby-specific types (Drops, BigDecimal precision, Range objects) or features that don't apply to JavaScript environments.
 
