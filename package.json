@@ -4,7 +4,7 @@
   "description": "Smallest Liquid template engine for JavaScript",
   "main": "droplet.js",
   "scripts": {
-    "build": "terser droplet.js -o droplet.min.js -c passes=3,toplevel,unsafe,pure_getters -m toplevel",
+    "build": "bun build src/index.js --outfile=droplet.js --format=cjs --target=node --no-splitting && terser droplet.js -o droplet.min.js -c passes=3,toplevel,unsafe,pure_getters -m toplevel",
     "size": "bun -e \"const f=require('fs'),z=require('zlib');const s=f.readFileSync('droplet.min.js');console.log('min:',s.length,'gzip:',z.gzipSync(s).length,'brotli:',z.brotliCompressSync(s).length)\"",
     "test": "bun test.js"
   },

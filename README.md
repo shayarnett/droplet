@@ -1,6 +1,6 @@
 # Droplet
 
-The smallest Liquid template engine for JavaScript. **~28 KB** minified.
+The smallest Liquid template engine for JavaScript. **~27 KB** minified.
 
 Droplet implements the [Liquid](https://shopify.github.io/liquid/) template language used by Shopify, Jekyll, and many others. It's async-only, runs anywhere JavaScript does, and stays small enough to embed in edge workers, browser bundles, or CLI tools.
 
@@ -121,12 +121,12 @@ inlineErrors(engine);
 ## Build
 
 ```bash
-npm run build    # minify → droplet.min.js
-npm run size     # print min/gzip/brotli sizes
-npm run test     # run unit tests
+bun run build    # bundle src/ → droplet.js, then minify → droplet.min.js
+bun run size     # print min/gzip/brotli sizes
+bun test.js      # run unit tests
 ```
 
-Requires [terser](https://terser.org/) for minification and [bun](https://bun.sh/) for tests.
+Source lives in `src/` as ES modules, bundled by [bun](https://bun.sh/) into a single CJS file, then minified by [terser](https://terser.org/).
 
 ## Spec Compliance
 

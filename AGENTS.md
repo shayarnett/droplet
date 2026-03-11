@@ -5,8 +5,15 @@ This document explains how AI agents (and humans) can use the `liquid-spec` test
 ## Repository Structure
 
 ```
-droplet.js              # Core engine (~49 KB source, ~28 KB minified)
-droplet.min.js          # Minified build
+src/
+  utils.js              # Primitives, comparison, serialization (shared foundation)
+  filters.js            # All builtin filters
+  eval.js               # Expression resolution, evaluation, conditions
+  tokenizer.js          # Template parsing (tokenize, isBlockBlank)
+  render.js             # Render loop + all tag handlers
+  index.js              # Droplet class, CJS export
+droplet.js              # Build output: bun-bundled CJS (~52 KB)
+droplet.min.js          # Minified build (~27 KB)
 ext/
   partials.js           # {% include %} and {% render %} support
   inline-errors.js      # Render errors inline instead of throwing
@@ -105,23 +112,23 @@ for (const spec of items) {
 
 ### Step 3: Fix the Engine
 
-Common fix locations in `droplet.js`:
+Common fix locations in `src/`:
 
-| Area | What to look for |
-|------|-----------------|
-| **Filters** | Search for the filter name in the `filters` object (~line 50-200) |
-| **Tag handling** | The render loop's tag dispatch (~line 300-500) |
-| **Expression evaluation** | `evalExpr` and `evalOutput` functions |
-| **Tokenizer** | `tokenize` function at the top |
-| **String output** | `stringify` and `rout` functions |
+| Area | File | What to look for |
+|------|------|-----------------|
+| **Filters** | `src/filters.js` | Search for the filter name in the `BUILTIN_FILTERS` object |
+| **Tag handling** | `src/render.js` | The render loop's tag dispatch and handler functions |
+| **Expression evaluation** | `src/eval.js` | `evalExpr`, `evalOutput`, `evalCondition`, `resolve` |
+| **Tokenizer** | `src/tokenizer.js` | `tokenize`, `isBlockBlank`, `BB` map |
+| **String output** | `src/utils.js` | `stringify`, `rout`, `str`, `rubyVal` |
 
 ### Step 4: Rebuild and Test
 
 ```bash
-npm run build             # Minify
+bun run build             # Bundle src/ → droplet.js, then minify → droplet.min.js
 bun test.js               # Unit tests
 bun spec-runner.js        # Full spec suite
-wc -c droplet.min.js      # Check size hasn't ballooned
+bun run size              # Check min/gzip/brotli sizes
 ```
 
 ## Key Patterns for Agents
@@ -178,7 +185,7 @@ Focus on these for maximum test gains:
 
 ### Size Budget
 
-The primary constraint is **minified size** (not gzip). Current: ~28 KB. Every fix should be weighed against bytes added. Run `wc -c droplet.min.js` after each build.
+The primary constraint is **minified size** (not gzip). Current: ~27 KB. Every fix should be weighed against bytes added. Run `bun run size` after each build.
 
 ## Extension Development
 
