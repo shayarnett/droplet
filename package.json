@@ -4,6 +4,17 @@
   "description": "Smallest Liquid template engine for JavaScript",
   "main": "droplet.js",
   "types": "droplet.d.ts",
+  "exports": {
+    ".": {
+      "types": "./droplet.d.ts",
+      "default": "./droplet.js"
+    },
+    "./ext/liquid-compat": {
+      "types": "./ext/liquid-compat.d.ts",
+      "default": "./ext/liquid-compat.js"
+    },
+    "./ext/partials": "./ext/partials.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/shayarnett/droplet.git"
