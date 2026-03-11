@@ -1,0 +1,3 @@
+[submodule "liquid-spec"]
+	path = liquid-spec
+	url = https://github.com/Shopify/liquid-spec.git
